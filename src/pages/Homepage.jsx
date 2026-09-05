@@ -3,19 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { Lock, Zap, Users, ChevronDown, Menu, X } from "lucide-react";
 import E2EELogoSVG from "../assets/E2EE.svg";
 
-/**
- * E2EE — end-to-end encrypted chat, homepage
- *
- * Recreates the "constellation on obsidian" design system this was built
- * from: signal green (#00ec97) as the single chromatic accent, alternating
- * obsidian/mint full-bleed bands, 4px radii everywhere, zero box-shadows,
- * and a repeating text-tile pattern as the brand signature.
- *
- * Fonts: the source system's display face is a paid/proprietary font, so
- * this uses that same system's own documented fallback — Space Grotesk for
- * display/UI text and Inter for captions. Swap the @import below if you
- * have a license for the original.
- */
 
 const COLORS = {
   obsidian: "#3d02b3",
@@ -141,32 +128,6 @@ function ConstellationField({ count = 60 }) {
   );
 }
 
-function CrystalGraphic({ style }) {
-  return (
-    <svg viewBox="0 0 200 240" width="200" style={style} aria-hidden="true">
-      <defs>
-        <linearGradient id="E2EECrystalGrad" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#00ec97" />
-          <stop offset="100%" stopColor="#00b87a" />
-        </linearGradient>
-      </defs>
-      <polygon
-        points="100,0 160,58 130,240 70,240 40,58"
-        fill="url(#E2EECrystalGrad)"
-      />
-      <polygon
-        points="100,0 160,58 100,86 40,58"
-        fill="#ffffff"
-        opacity="0.18"
-      />
-      <polygon
-        points="100,86 160,58 130,240 100,220"
-        fill="#000000"
-        opacity="0.14"
-      />
-    </svg>
-  );
-}
 
 function baseBtnClasses(size) {
   return `inline-flex items-center justify-center gap-2 rounded font-medium transition-all duration-200 hover:-translate-y-0.5 ${
@@ -174,21 +135,6 @@ function baseBtnClasses(size) {
   }`;
 }
 
-function PrimarySignalButton({ children, size = "md", ...props }) {
-  return (
-    <button
-      {...props}
-      className={baseBtnClasses(size)}
-      style={{
-        background: COLORS.signal,
-        color: COLORS.obsidian,
-        fontFamily: DISPLAY_FONT,
-      }}
-    >
-      {children}
-    </button>
-  ); //Logo
-}
 
 function InversePrimaryButton({ children, size = "md", ...props }) {
   return (
@@ -300,7 +246,7 @@ function Nav({ onSignup, onLogin }) {
         style={{ maxWidth: 1200, margin: "0 auto" }}
         className="flex h-16 items-center justify-between px-6"
       >
-        {/* Brand */}
+        {/* Scroll function */}
         <div
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
           className="flex items-center gap-2 cursor-pointer"
@@ -524,17 +470,6 @@ function FeatureBlock() {
         style={{ maxWidth: 1200, margin: "0 auto" }}
         className="flex flex-col items-center gap-16 px-6 md:flex-row"
       >
-        <div className="flex w-full justify-center gap-4 md:w-2/5">
-          <CrystalGraphic
-            style={{ animation: "E2EE-float 6s ease-in-out infinite" }}
-          />
-          <CrystalGraphic
-            style={{
-              animation: "E2EE-float 7s ease-in-out infinite 1.1s",
-              transform: "scale(0.72) translateY(24px)",
-            }}
-          />
-        </div>
         <div className="w-full md:w-3/5">
           <h2
             style={{
@@ -667,7 +602,7 @@ function Footer() {
             </p>
           </div>
 
-          {/* Direct Horizontal Links (No Product/Company headings) */}
+          {/* Direct Horizontal Links */}
           <ul className="flex items-center gap-8">
             {links.map((link) => (
               <li key={link.name}>
