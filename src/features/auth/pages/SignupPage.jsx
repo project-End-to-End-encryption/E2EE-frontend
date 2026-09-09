@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom"; // <-- Yeh import karo
-import { Eye, EyeOff } from "lucide-react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import {
     COLORS,
     DISPLAY_FONT,
@@ -14,24 +14,37 @@ import {
     inputStyle,
 } from "../components/sidepanel";
 
-/**
- * E2EE — sign-up page.
- *
- * Same shell, chrome, and OAuth row as login.jsx (both pull from
- * authKit.jsx) — this file only holds what's unique to signing up: the
- * email/password/confirm-password fields and their submit handler.
- */
-export default function E2EESignup({
-    onSignup,
-    onGoogleSignup,
-    onGithubSignup,
-    onLoginClick,
-}) {
-    const navigate = useNavigate(); // <-- Hook call karo
-    const location = useLocation(); // <-- Previous step (CheckUsername) se pass hua state read karne ke liye
+const API_SIGNUP_URL = import.meta.env.VITE_API_SIGNUP;
 
-    // CheckUsername page se pass hua username read karega:
-    const passedUsername = location.state?.username || "";
+async function defaultSignupApi({ email, password, reservationId }) {
+    const res = await fetch(API_SIGNUP_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email, password, reservationId }),
+    });
+
+    const data = await res.json();
+
+    return {
+        ok: res.ok && data.success,
+        message: data.message || "Failed to create account",
+        data: data.data ?? null,
+    };
+}
+
+export default function E2EESignup({
+                                       onSignup,
+                                       onGoogleSignup,
+                                       onGithubSignup,
+                                       onLoginClick,
+                                   }) {
+    const navigate = useNavigate();
+    const location = useLocation();
+
+    // Read reservationId and username passed from CheckUsername screen
+    const reservationId = location.state?.reservationId || "";
+    const username = location.state?.username || "";
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -40,12 +53,14 @@ export default function E2EESignup({
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [confirmTouched, setConfirmTouched] = useState(false);
 
+    const [loading, setLoading] = useState(false);
+    const [apiError, setApiError] = useState("");
+
     const handleGoogle =
         onGoogleSignup || (() => console.log("Continue with Google"));
     const handleGithub =
         onGithubSignup || (() => console.log("Continue with GitHub"));
-    
-    // "Log in" link par click karne se login route par bhejega:
+
     const handleLoginClick = onLoginClick || (() => navigate("/login"));
 
     const passwordsMismatch =
@@ -53,17 +68,36 @@ export default function E2EESignup({
         confirmPassword.length > 0 &&
         confirmPassword !== password;
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setConfirmTouched(true);
+        setApiError("");
+
         if (confirmPassword !== password) return;
 
-        if (onSignup) {
-            onSignup(email, password, passedUsername);
-        } else {
-            console.log("Account Created:", { username: passedUsername, email, password });
-            // Direct test redirection:
-            // navigate("/dashboard");
+        if (!reservationId) {
+            setApiError("Session expired. Please choose your username again.");
+            return;
+        }
+
+        setLoading(true);
+
+        const runSignup = onSignup || defaultSignupApi;
+
+        try {
+            const result = await runSignup({ email, password, reservationId, username });
+
+            if (result.ok) {
+                // Account created successfully -> navigate to uploadProfilePicture
+                navigate("/signup/profile");
+            } else {
+                setApiError(result.message);
+            }
+        } catch (err) {
+            console.error("Signup error:", err);
+            setApiError("Something went wrong. Please try again.");
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -82,17 +116,32 @@ export default function E2EESignup({
             </h1>
             <p
                 style={{
-                color: COLORS.obsidian, 
-                fontFamily: DISPLAY_FONT,
-                fontSize: 15,
-                lineHeight: 1.5,
+                    color: COLORS.obsidian,
+                    fontFamily: DISPLAY_FONT,
+                    fontSize: 15,
+                    lineHeight: 1.5,
                 }}
                 className="mt-2"
->
-                Sign up to start the conversation.
+            >
+                {username ? (
+                    <>
+                        Signing up as <span className="font-semibold">{username}</span>
+                    </>
+                ) : (
+                    "Sign up to start the conversation."
+                )}
             </p>
 
             <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-5">
+                {apiError && (
+                    <div
+                        style={{ color: COLORS.otherText, fontFamily: CAPTION_FONT }}
+                        className="rounded border border-red-200 bg-red-50 p-3 text-xs"
+                    >
+                        {apiError}
+                    </div>
+                )}
+
                 <Field label="Email">
                     <input
                         type="email"
@@ -155,7 +204,7 @@ export default function E2EESignup({
                     {passwordsMismatch && (
                         <p
                             style={{ color: COLORS.otherText, fontFamily: CAPTION_FONT }}
-                            className="text-xs"
+                            className="text-xs mt-1"
                         >
                             Passwords don't match.
                         </p>
@@ -164,14 +213,21 @@ export default function E2EESignup({
 
                 <button
                     type="submit"
-                    className="mt-2 rounded px-6 py-3.5 text-base font-medium transition-all duration-200 hover:-translate-y-0.5"
+                    disabled={loading || passwordsMismatch}
+                    className="mt-2 flex items-center justify-center rounded px-6 py-3.5 text-base font-medium transition-all duration-200 hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0"
                     style={{
                         background: COLORS.signal,
                         color: COLORS.obsidian,
                         fontFamily: DISPLAY_FONT,
                     }}
                 >
-                    Create account
+                    {loading ? (
+                        <span className="flex items-center gap-2">
+                            <Loader2 size={18} className="animate-spin" /> Creating account…
+                        </span>
+                    ) : (
+                        "Create account"
+                    )}
                 </button>
             </form>
 
@@ -188,27 +244,25 @@ export default function E2EESignup({
 
             <p
                 style={{
-                color: COLORS.obsidian, 
-                fontFamily: DISPLAY_FONT,
-                fontSize: 14,
-            }}
+                    color: COLORS.obsidian,
+                    fontFamily: DISPLAY_FONT,
+                    fontSize: 14,
+                }}
                 className="mt-8 text-center"
->
+            >
                 Already have an account?{" "}
-            <button
-                type="button"
-                onClick={handleLoginClick}
-                style={{
-                color: COLORS.signal,
-                fontFamily: DISPLAY_FONT,
-            }}
-                className="font-medium hover:underline"
-    >
-                Log in
-            </button>
+                <button
+                    type="button"
+                    onClick={handleLoginClick}
+                    style={{
+                        color: COLORS.signal,
+                        fontFamily: DISPLAY_FONT,
+                    }}
+                    className="font-medium hover:underline"
+                >
+                    Log in
+                </button>
             </p>
         </AuthPageShell>
     );
-
-
 }
