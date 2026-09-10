@@ -381,7 +381,7 @@ export default function ProfileSetup({ onContinue }) {
 
             if (res.ok && data.success) {
                 // Redirect to dashboard on successful login
-                navigate("/dashboard");
+                navigate("/chat");
             } else {
                 setErrorMsg(data.message || "Login failed. Please check your credentials.");
             }
