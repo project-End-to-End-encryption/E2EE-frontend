@@ -3,8 +3,7 @@ import { Navigate, Outlet } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { COLORS } from "../features/auth/components/sidepanel.jsx";
 
-const API_REFRESH_URL =
-    import.meta.env.VITE_API_REFRESH_URL || "http://localhost:3000/api/v1/auth/refresh";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export default function AuthGuard() {
     const [loading, setLoading] = useState(true);
@@ -15,7 +14,7 @@ export default function AuthGuard() {
 
         async function checkAuth() {
             try {
-                const res = await fetch(API_REFRESH_URL, {
+                const res = await fetch(`${API_BASE_URL}/api/v1/auth/refresh`, {
                     method: "POST", // Change to "GET" if your refresh endpoint uses GET
                     credentials: "include", // Essential: sends HTTP-only cookies automatically
                     headers: { "Content-Type": "application/json" },
