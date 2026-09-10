@@ -1,175 +1,212 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom"; // <-- Yeh add karo
+import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import {
-  COLORS,
-  DISPLAY_FONT,
-  CAPTION_FONT,
-  AuthPageShell,
-  Field,
-  Divider,
-  OAuthButton,
-  GoogleMark,
-  GithubMark,
-  inputStyle,
+    COLORS,
+    DISPLAY_FONT,
+    CAPTION_FONT,
+    AuthPageShell,
+    Field,
+    Divider,
+    OAuthButton,
+    GoogleMark,
+    GithubMark,
+    inputStyle,
 } from "../components/sidepanel";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-/**
- * E2EE — log-in page.
- *
- * All shared chrome (Signal Network animation, brand panel, page shell,
- * form primitives) now lives in authKit.jsx. This file only holds the
- * things unique to logging in: the form fields, submit handler, and
- * OAuth/footer actions. Visuals are unchanged from the original.
- */
 export default function E2EELogin({
-  onLogin,
-  onGoogleLogin,
-  onGithubLogin,
-  onSignupClick,
-}) {
-  const navigate = useNavigate(); // <-- Hook call karo
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+                                      onLogin,
+                                      onGoogleLogin,
+                                      onGithubLogin,
+                                      onSignupClick,
+                                  }) {
+    const navigate = useNavigate();
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [errorMsg, setErrorMsg] = useState("");
 
-  const handleGoogle =
-    onGoogleLogin || (() => console.log("Continue with Google"));
-  const handleGithub =
-    onGithubLogin || (() => console.log("Continue with GitHub"));
-  
-  // "Create one" par click karne se Username flow par bhejega:
-  const handleSignup = onSignupClick || (() => navigate("/signup/username"));
+    const handleGoogle =
+        onGoogleLogin || (() => console.log("Continue with Google"));
+    const handleGithub =
+        onGithubLogin || (() => console.log("Continue with GitHub"));
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (onLogin) {
-      onLogin(email, password);
-    } else {
-      // Backend integration ke baad dashboard/app route par redicrect karega:
-      console.log("Logging in with:", email, password);
-      // navigate("/dashboard"); 
-    }
-  };
+    const handleSignup = onSignupClick || (() => navigate("/signup/username"));
 
-  return (
-    <AuthPageShell>
-      <h1
-        style={{
-          color: COLORS.obsidian,
-          fontFamily: DISPLAY_FONT,
-          fontSize: "clamp(28px, 4vw, 36px)",
-          letterSpacing: "-0.01em",
-        }}
-        className="font-medium"
-      >
-        Welcome back
-      </h1>
-      <p
-  style={{
-    color: COLORS.obsidian, 
-    fontFamily: DISPLAY_FONT,
-    fontSize: 15,
-    lineHeight: 1.5,
-  }}
-  className="mt-2"
->
-  Log in to keep the conversation going.
-</p>
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setErrorMsg("");
+        setLoading(true);
 
-      <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-5">
-        <Field label="Email">
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@example.com"
-            className="E2EE-login-input rounded px-4 py-3 text-sm transition-colors duration-150"
-            style={inputStyle}
-          />
-        </Field>
+        try {
+            // If a custom onLogin handler is passed, call it first
+            if (onLogin) {
+                await onLogin(email, password);
+                setLoading(false);
+                return;
+            }
 
-        <Field label="Password">
-          <div className="relative">
-            <input
-              type={showPassword ? "text" : "password"}
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className="E2EE-login-input w-full rounded px-4 py-3 pr-11 text-sm transition-colors duration-150"
-              style={inputStyle}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword((v) => !v)}
-              aria-label={showPassword ? "Hide password" : "Show password"}
-              style={{ color: COLORS.midGray }}
-              className="absolute right-3 top-1/2 -translate-y-1/2"
-            >
-              {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
-            </button>
-          </div>
-          <div className="mt-1 flex justify-end">
-            <a
-              href="#"
-              style={{
-                color: COLORS.midGray,
-                fontFamily: CAPTION_FONT,
-              }}
-              className="text-xs hover:underline"
-            >
-              Forgot password?
-            </a>
-          </div>
-        </Field>
+            // API Integration
+            const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                // credentials: "include" ensures HTTP-only cookies sent by backend are set in browser
+                credentials: "include",
+                body: JSON.stringify({ email, password }),
+            });
 
-        <button
-          type="submit"
-          className="mt-2 rounded px-6 py-3.5 text-base font-medium transition-all duration-200 hover:-translate-y-0.5"
-          style={{
-            background: COLORS.signal,
-            color: COLORS.obsidian,
-            fontFamily: DISPLAY_FONT,
-          }}
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                // Redirect to dashboard on successful login
+                navigate("/dashboard");
+            } else {
+                setErrorMsg(data.message || "Login failed. Please check your credentials.");
+            }
+        } catch (err) {
+            console.error("Login request error:", err);
+            setErrorMsg("Unable to connect to the server. Please try again later.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <AuthPageShell
+            tagline="Welcome back"
+            subtext="Your conversations are waiting."
         >
-          Log in
-        </button>
-      </form>
+            <h1
+                style={{
+                    color: COLORS.obsidian,
+                    fontFamily: DISPLAY_FONT,
+                    fontSize: "clamp(28px, 4vw, 36px)",
+                    letterSpacing: "-0.01em",
+                }}
+                className="font-medium"
+            >
+                Welcome back
+            </h1>
+            <p
+                style={{
+                    color: COLORS.obsidian,
+                    fontFamily: DISPLAY_FONT,
+                    fontSize: 15,
+                    lineHeight: 1.5,
+                }}
+                className="mt-2"
+            >
+                Log in to keep the conversation going.
+            </p>
 
-      <Divider>or</Divider>
+            {/* Error Message Display */}
+            {errorMsg && (
+                <div className="mt-4 rounded bg-red-100 p-3 text-sm text-red-600">
+                    {errorMsg}
+                </div>
+            )}
 
-      <div className="flex flex-col gap-3">
-        <OAuthButton icon={<GoogleMark />} onClick={handleGoogle}>
-          Continue with Google
-        </OAuthButton>
-        <OAuthButton icon={<GithubMark size={18} />} onClick={handleGithub}>
-          Continue with GitHub
-        </OAuthButton>
-      </div>
+            <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-5">
+                <Field label="Email">
+                    <input
+                        type="email"
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="you@example.com"
+                        className="E2EE-login-input rounded px-4 py-3 text-sm transition-colors duration-150"
+                        style={inputStyle}
+                        disabled={loading}
+                    />
+                </Field>
 
-      <p
-  style={{
-    color: COLORS.obsidian, 
-    fontFamily: DISPLAY_FONT,
-    fontSize: 14,
-  }}
-  className="mt-8 text-center"
->
-  Don't have an account?{" "}
-  <button
-    type="button"
-    onClick={handleSignup}
-    style={{
-      color: COLORS.signal, 
-      fontFamily: DISPLAY_FONT,
-    }}
-    className="font-medium hover:underline"
-  >
-    Create one
-  </button>
-</p>
-    </AuthPageShell>
-  );
+                <Field label="Password">
+                    <div className="relative">
+                        <input
+                            type={showPassword ? "text" : "password"}
+                            required
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="••••••••"
+                            className="E2EE-login-input w-full rounded px-4 py-3 pr-11 text-sm transition-colors duration-150"
+                            style={inputStyle}
+                            disabled={loading}
+                        />
+                        <button
+                            type="button"
+                            onClick={() => setShowPassword((v) => !v)}
+                            aria-label={showPassword ? "Hide password" : "Show password"}
+                            style={{ color: COLORS.midGray }}
+                            className="absolute right-3 top-1/2 -translate-y-1/2"
+                            disabled={loading}
+                        >
+                            {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                        </button>
+                    </div>
+                    <div className="mt-1 flex justify-end">
+                        <a
+                            href="#"
+                            style={{
+                                color: COLORS.midGray,
+                                fontFamily: CAPTION_FONT,
+                            }}
+                            className="text-xs hover:underline"
+                        >
+                            Forgot password?
+                        </a>
+                    </div>
+                </Field>
+
+                <button
+                    type="submit"
+                    disabled={loading}
+                    className="mt-2 rounded px-6 py-3.5 text-base font-medium transition-all duration-200 hover:-translate-y-0.5 disabled:opacity-50"
+                    style={{
+                        background: COLORS.signal,
+                        color: COLORS.obsidian,
+                        fontFamily: DISPLAY_FONT,
+                    }}
+                >
+                    {loading ? "Logging in..." : "Log in"}
+                </button>
+            </form>
+
+            <Divider>or</Divider>
+
+            <div className="flex flex-col gap-3">
+                <OAuthButton icon={<GoogleMark />} onClick={handleGoogle}>
+                    Continue with Google
+                </OAuthButton>
+                <OAuthButton icon={<GithubMark size={18} />} onClick={handleGithub}>
+                    Continue with GitHub
+                </OAuthButton>
+            </div>
+
+            <p
+                style={{
+                    color: COLORS.obsidian,
+                    fontFamily: DISPLAY_FONT,
+                    fontSize: 14,
+                }}
+                className="mt-8 text-center"
+            >
+                Don't have an account?{" "}
+                <button
+                    type="button"
+                    onClick={handleSignup}
+                    style={{
+                        color: COLORS.signal,
+                        fontFamily: DISPLAY_FONT,
+                    }}
+                    className="font-medium hover:underline"
+                >
+                    Create one
+                </button>
+            </p>
+        </AuthPageShell>
+    );
 }

@@ -100,7 +100,7 @@ export default function CheckUsername({ onCheckUsername, onContinue }) {
   const isTaken = status === "taken";
 
   const statusColor = isAvailable
-      ? COLORS.teal
+      ? COLORS.obsidian
       : isTaken || status === "error"
           ? COLORS.otherText
           : COLORS.ash;

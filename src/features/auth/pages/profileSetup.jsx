@@ -277,7 +277,7 @@ export default function ProfileSetup({ onContinue }) {
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
                 body: JSON.stringify({
-                    fileName: "avatar.jpeg",
+                    fileName: "avatar.jpeg",  // TODO: need to fix this
                     mimeType: "image/jpeg",
                 }),
             });
@@ -357,11 +357,12 @@ export default function ProfileSetup({ onContinue }) {
 
             const data = await res.json();
 
-            if (!res.ok && !data.success) {
-                setErrorMsg(data.message || "Failed to save profile.");
-                return;
+            if (res.ok && data.success) {
+                // Redirect to dashboard on successful login
+                navigate("/dashboard");
+            } else {
+                setErrorMsg(data.message || "Login failed. Please check your credentials.");
             }
-            console.log("Profile setup completed:", data.data);
 
         } catch (err) {
             console.error("Profile submit error:", err);

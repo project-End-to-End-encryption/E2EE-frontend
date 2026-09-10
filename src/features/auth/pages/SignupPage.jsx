@@ -102,7 +102,10 @@ export default function E2EESignup({
     };
 
     return (
-        <AuthPageShell>
+        <AuthPageShell
+            tagline="Your space. Your conversations."
+            subtext="Create an account and connect without giving up your privacy."
+        >
             <h1
                 style={{
                     color: COLORS.obsidian,
