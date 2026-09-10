@@ -12,6 +12,8 @@ import {
 const CROP_SIZE = 240; // on-screen crop frame, px
 const OUTPUT_SIZE = 320; // exported avatar size, px
 
+const ALLOWED = ['image/jpeg', 'image/png', 'image/webp'];
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const UPLOAD_URL_ENDPOINT = `${API_BASE_URL}/api/v1/users/profile/picture/upload-url`;
 const PROFILE_ENDPOINT = `${API_BASE_URL}/api/v1/users/profile`;
@@ -252,11 +254,27 @@ export default function ProfileSetup({ onContinue }) {
     const fileInputRef = useRef(null);
     const uploadPromiseRef = useRef(null);
 
+    const ALLOWED = ['image/jpeg', 'image/png', 'image/webp'];
+
     const handlePhotoChange = (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
+
+        // Validate before loading the file
+        if (!ALLOWED.includes(file.type)) {
+            setErrorMsg("Only JPG, PNG, and WebP images are allowed.");
+            e.target.value = "";
+            return;
+        }
+
+        setErrorMsg("");
+
         const reader = new FileReader();
-        reader.onload = () => setPendingPhotoSrc(reader.result);
+
+        reader.onload = () => {
+            setPendingPhotoSrc(reader.result);
+        };
+
         reader.readAsDataURL(file);
     };
 
@@ -271,14 +289,18 @@ export default function ProfileSetup({ onContinue }) {
         setErrorMsg("");
 
         try {
+
+            if(!ALLOWED.includes(file.type)){
+                setErrorMsg("Only JPG, PNG, and WebP images are allowed.");
+            }
             // 1. Get presigned upload URL from backend
             const res = await fetch(UPLOAD_URL_ENDPOINT, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
                 body: JSON.stringify({
-                    fileName: "avatar.jpeg",  // TODO: need to fix this
-                    mimeType: "image/jpeg",
+                    fileName: file.name,
+                    mimeType: file.type,
                 }),
             });
 
@@ -468,7 +490,7 @@ export default function ProfileSetup({ onContinue }) {
                         <input
                             ref={fileInputRef}
                             type="file"
-                            accept="image/*"
+                            accept=".jpg,.jpeg,.png,.webp"
                             onChange={handlePhotoChange}
                             className="hidden"
                         />
