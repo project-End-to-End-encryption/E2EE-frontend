@@ -36,9 +36,10 @@ const CAPTION_FONT =
     "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif";
 
 const CREDITS = [
-    { name: "Ayesha Raga", role: "Founder & Engineering" },
-    { name: "Devon Cole", role: "Product & Design" },
-    { name: "Marcus Wei", role: "Security & Infrastructure" },
+    { name: "Suraj Roy", role: "Front-end" },
+    { name: "SK Saqib", role: "UI/UX Designer" },
+    { name: "Vivek Anand Shaw", role: "Back-end" },
+    { name: "Suryaayan Ghosh", role: "Artificial Intelligence/GenAI" },
 ];
 
 const NAV_LINKS = [
@@ -657,12 +658,12 @@ function AboutSection() {
                     <h3 style={{ color: COLORS.obsidian, fontFamily: DISPLAY_FONT }} className="text-2xl font-medium">
                         Credits
                     </h3>
-                    <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-3">
+                    <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-4">
                         {CREDITS.map((person) => (
                             <div
                                 key={person.name}
                                 style={{ borderTop: `1px solid ${COLORS.hairline}` }}
-                                className="pt-4"
+                                className="pt-4 text-center"
                             >
                                 <p style={{ color: COLORS.obsidian, fontFamily: DISPLAY_FONT }} className="text-base font-medium">
                                     {person.name}
@@ -696,7 +697,7 @@ function AboutSection() {
                         </a>
 
                         <a
-                            href="https://forms.gle/REPLACE_WITH_YOUR_FORM_ID"
+                            href="https://docs.google.com/forms/d/e/1FAIpQLScwLv87RbjTl6-zsoK7Rijp4abEjoEjYOcD0I_rIunUTLK0LQ/viewform"
                             target="_blank"
                             rel="noopener noreferrer"
                             className={baseBtnClasses("sm")}
