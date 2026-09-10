@@ -14,10 +14,10 @@ import {
     inputStyle,
 } from "../components/sidepanel";
 
-const API_SIGNUP_URL = import.meta.env.VITE_API_SIGNUP;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 async function defaultSignupApi({ email, password, reservationId }) {
-    const res = await fetch(API_SIGNUP_URL, {
+    const res = await fetch(`${API_BASE_URL}/api/v1/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

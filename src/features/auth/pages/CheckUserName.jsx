@@ -12,10 +12,10 @@ import {
 
 const USERNAME_PATTERN = /^[a-zA-Z0-9_]{3,20}$/;
 
-const API_USERNAME_URL = import.meta.env.VITE_API_CHEK_USERNAME;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 async function checkUsername(username) {
-  const res = await fetch(`${API_USERNAME_URL}`, {
+  const res = await fetch(`${API_BASE_URL}/api/v1/users/check-username`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username }),
