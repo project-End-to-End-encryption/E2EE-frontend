@@ -33,7 +33,7 @@ class WebCryptoProvider extends ICryptoProvider{
 
         return {
             keyId,
-            keypair,
+            keyPair,
             publicKeyBase64: bufferToBase64(publicKeyBytes),
             signatureBase64: bufferToBase64(signature)
         };

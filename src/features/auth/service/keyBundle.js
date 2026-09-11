@@ -9,7 +9,7 @@ export const generateAndRegisterKeys = async (socket) => {
         throw new Error("WEB_CRYPTO_UNSUPPORTED");
     }
 
-    if(await keyStorage.hasIdentityKey()) return;
+    if(await keyStorage.hasIdentityKey() && await keyStorage.getSignedPreKey()) return;
 
     const identityKeyPair = await cryptoProvider.generateIdentityKeyPair();
     const identityPublicKeyBase64 = await cryptoProvider.exportPublicKeyBase64(identityKeyPair.publicKey);

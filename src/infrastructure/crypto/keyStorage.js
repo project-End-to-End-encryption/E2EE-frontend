@@ -44,25 +44,25 @@ export const keyStorage = {
     },
     async getIdentityKeyPair(){
         const db = await openDb();
-        await wrapRequest(db.transaction(STORE_IDENTITY, 'readonly').objectStore(STORE_IDENTITY).get('current'))
+        return  wrapRequest(db.transaction(STORE_IDENTITY, 'readonly').objectStore(STORE_IDENTITY).get('current'))
     },
     async saveSignedPreKey(record){
-        const db = openDb();
+        const db = await openDb();
         await wrapRequest(db.transaction(STORE_SIGNED_PREKEY, 'readwrite')
-            .objectStore(STORE_SIGNED_PREKEY).get('current'));
+            .objectStore(STORE_SIGNED_PREKEY).put(record ,'current'));
     },
     async getSignedPreKey(){
-        const db = openDb();
+        const db = await openDb();
         return wrapRequest(db.transaction(STORE_SIGNED_PREKEY, 'readonly')
             .objectStore(STORE_SIGNED_PREKEY).get('current'));
     },
     async saveOneTimePreKeys(records){
-        const db = openDb();
+        const db = await openDb();
         const store = db.transaction(STORE_ONE_TIME_PREKEYS, 'readwrite').objectStore(STORE_ONE_TIME_PREKEYS);
         await Promise.all(records.map((r) => wrapRequest(store.put(r))));
     },
     async getOneTimePreKey(keyId) {
-        const db = openDb();
+        const db = await openDb();
         return wrapRequest(db.transaction(STORE_ONE_TIME_PREKEYS, 'readonly')
             .objectStore(STORE_ONE_TIME_PREKEYS).get(keyId));
     },

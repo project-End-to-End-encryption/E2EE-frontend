@@ -14,24 +14,7 @@ import {
     inputStyle,
 } from "../components/sidepanel";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-
-async function defaultSignupApi({ email, password, reservationId }) {
-    const res = await fetch(`${API_BASE_URL}/api/v1/auth/signup`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ email, password, reservationId }),
-    });
-
-    const data = await res.json();
-
-    return {
-        ok: res.ok && data.success,
-        message: data.message || "Failed to create account",
-        data: data.data ?? null,
-    };
-}
+import {register} from "../service/authService.js";
 
 export default function E2EESignup({
                                        onSignup,
@@ -82,20 +65,16 @@ export default function E2EESignup({
 
         setLoading(true);
 
-        const runSignup = onSignup || defaultSignupApi;
-
         try {
-            const result = await runSignup({ email, password, reservationId, username });
-
-            if (result.ok) {
-                // Account created successfully -> navigate to uploadProfilePicture
-                navigate("/signup/profile");
-            } else {
-                setApiError(result.message);
-            }
+           if(onSignup){
+               await onSignup({email, password, reservationId, username})
+           } else {
+               await register({email, password, reservationId});
+           }
+            navigate("/signup/profile");
         } catch (err) {
             console.error("Signup error:", err);
-            setApiError("Something went wrong. Please try again.");
+            setApiError(err.message ||"Something went wrong. Please try again.");
         } finally {
             setLoading(false);
         }

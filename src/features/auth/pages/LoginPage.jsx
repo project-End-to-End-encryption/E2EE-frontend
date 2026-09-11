@@ -13,7 +13,8 @@ import {
     GithubMark,
     inputStyle,
 } from "../components/sidepanel";
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+import {login} from "../service/authService.js";
+import {loginUser} from "../api/auth.api.js";
 
 export default function E2EELogin({
                                       onLogin,
@@ -44,32 +45,14 @@ export default function E2EELogin({
             // If a custom onLogin handler is passed, call it first
             if (onLogin) {
                 await onLogin(email, password);
-                setLoading(false);
                 return;
-            }
-
-            // API Integration
-            const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                // credentials: "include" ensures HTTP-only cookies sent by backend are set in browser
-                credentials: "include",
-                body: JSON.stringify({ email, password }),
-            });
-
-            const data = await response.json();
-
-            if (response.ok && data.success) {
-                // Redirect to dashboard on successful login
-                navigate("/dashboard");
             } else {
-                setErrorMsg(data.message || "Login failed. Please check your credentials.");
+                await login({email, password});
             }
+            navigate("/chat");
         } catch (err) {
             console.error("Login request error:", err);
-            setErrorMsg("Unable to connect to the server. Please try again later.");
+            setErrorMsg(err.message || "Unable to connect to the server. Please try again later.");
         } finally {
             setLoading(false);
         }
