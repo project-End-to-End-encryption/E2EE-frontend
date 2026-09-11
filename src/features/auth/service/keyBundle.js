@@ -1,5 +1,6 @@
 import cryptoProvider from '../../../infrastructure/crypto/WebCryptoProvider.js'
 import { keyStorage } from '../../../infrastructure/crypto/keyStorage.js'
+import {getDeviceId} from "../../../shared/utils/deviceId.js";
 
 const DEFAULT_OTPK_COUNT = 50;
 
@@ -22,6 +23,7 @@ export const generateAndRegisterKeys = async (socket) => {
         .map(({keyId, keyPair}) => ({keyId,keyPair})));
 
     const payload = {
+        deviceId: getDeviceId(),
         identityPublicKey: identityPublicKeyBase64,
         signedPreKey: { keyId: signedPreKey.keyId, publicKey: signedPreKey.publicKeyBase64 },
         signedPreKeySignature: signedPreKey.signatureBase64,
