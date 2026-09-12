@@ -17,3 +17,7 @@ export const base64ToBuffer = (base64) =>{
     }
     return bytes.buffer;
 }
+
+export const stringToBuffer = (str) => new TextEncoder().encode(str);
+
+export const bufferToString = (buffer) => new TextDecoder().decode(buffer);

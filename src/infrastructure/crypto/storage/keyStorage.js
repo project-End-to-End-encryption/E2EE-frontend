@@ -4,7 +4,11 @@ const STORE_IDENTITY = "identityKey";
 const STORE_SIGNED_PREKEY = "signedPreKey";
 const STORE_ONE_TIME_PREKEYS = "oneTimePreKeys";
 
+let dbInstance = null;
 function openDb(){
+
+    if(dbInstance) return Promise.resolve(dbInstance);
+
     return new Promise((resolve, reject) => {
         const request = indexedDB.open(DB_NAME, DB_VERSION);
 
@@ -17,7 +21,10 @@ function openDb(){
                 db.createObjectStore(STORE_ONE_TIME_PREKEYS, {keyPath: 'keyId'});
             }
         };
-        request.onsuccess = () => resolve(request.result);
+        request.onsuccess = () => {
+            dbInstance = request.result;
+            resolve(request.result);
+        };
         request.onerror = () => reject(request.error);
     });
 }

@@ -1,5 +1,5 @@
 import cryptoProvider from '../../../infrastructure/crypto/WebCryptoProvider.js'
-import { keyStorage } from '../../../infrastructure/crypto/keyStorage.js'
+import { keyStorage } from '../../../infrastructure/crypto/storage/keyStorage.js'
 import {getDeviceId} from "../../../shared/utils/deviceId.js";
 
 const DEFAULT_OTPK_COUNT = 50;
