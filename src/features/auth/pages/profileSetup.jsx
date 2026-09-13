@@ -290,9 +290,11 @@ export default function ProfileSetup({ onContinue }) {
 
         try {
 
-            if(!ALLOWED.includes(file.type)){
-                setErrorMsg("Only JPG, PNG, and WebP images are allowed.");
-            }
+            // Is lines ko uploadPhotoInBackground ke start se hata/clean kar dein:
+if (!ALLOWED.includes(file.type)) {
+    setErrorMsg("Only JPG, PNG, and WebP images are allowed.");
+    return null; // Return missing tha pehle
+}
             // 1. Get presigned upload URL from backend
             const res = await fetch(UPLOAD_URL_ENDPOINT, {
                 method: "POST",
@@ -345,54 +347,53 @@ export default function ProfileSetup({ onContinue }) {
     };
 
     const handleSubmit = async (e) => {
-        e.preventDefault();
-        if (!fullName.trim() || isSubmitting) return;
+    e.preventDefault();
+    if (!fullName.trim() || isSubmitting) return;
 
-        setIsSubmitting(true);
-        setErrorMsg("");
+    setIsSubmitting(true);
+    setErrorMsg("");
 
-        try {
-            let keyToSubmit = profilePictureKey;
+    try {
+        let keyToSubmit = profilePictureKey;
 
-            // If the image is still uploading in background, wait for it to finish first
-            if (uploadPromiseRef.current && !keyToSubmit) {
-                keyToSubmit = await uploadPromiseRef.current;
-            }
-
-            // Prepare JSON payload according to backend schema
-            const payload = {
-                fullName: fullName.trim(),
-                userBio: bio.trim(),
-            };
-
-            if (keyToSubmit) {
-                payload.profilePictureKey = keyToSubmit;
-            }
-
-            // 3. Complete profile PATCH request
-            const res = await fetch(PROFILE_ENDPOINT, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include", // Send HTTP-only auth cookies
-                body: JSON.stringify(payload),
-            });
-
-            const data = await res.json();
-
-            if (res.ok && data.success) {
-                // Redirect to dashboard on successful login
-                navigate("/chat");
-            } else {
-                setErrorMsg(data.message || "Login failed. Please check your credentials.");
-            }
-
-        } catch (err) {
-            console.error("Profile submit error:", err);
-            setErrorMsg("An unexpected error occurred. Please try again.");
-        } finally {
-            setIsSubmitting(false);
+        if (uploadPromiseRef.current && !keyToSubmit) {
+            keyToSubmit = await uploadPromiseRef.current;
         }
-    };
+
+        const payload = {
+            fullName: fullName.trim(),
+            userBio: bio.trim(),
+        };
+
+        if (keyToSubmit) {
+            payload.profilePictureKey = keyToSubmit;
+        }
+
+        const res = await fetch(PROFILE_ENDPOINT, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify(payload),
+        });
+
+        const data = await res.json();
+
+        if (res.ok && (data.success || data.statusCode === 200)) {
+            // Callback or direct navigation to chat page
+            if (typeof onContinue === "function") {
+                onContinue();
+            }
+            navigate("/chat", { replace: true });
+        } else {
+            setErrorMsg(data.message || "Failed to save profile details.");
+        }
+    } catch (err) {
+        console.error("Profile submit error:", err);
+        setErrorMsg("An unexpected error occurred. Please try again.");
+    } finally {
+        setIsSubmitting(false);
+    }
+};
 
     return (
         <AuthPageShell

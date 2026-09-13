@@ -15,14 +15,18 @@ export default function AuthGuard() {
         async function checkAuth() {
             try {
                 const res = await fetch(`${API_BASE_URL}/api/v1/auth/refresh`, {
-                    method: "POST", // Change to "GET" if your refresh endpoint uses GET
-                    credentials: "include", // Essential: sends HTTP-only cookies automatically
+                    method: "POST",
+                    credentials: "include",
                     headers: { "Content-Type": "application/json" },
                 });
 
                 if (isMounted) {
-                    // If 200 OK, cookie is valid -> user is authenticated
-                    setIsAuthenticated(res.ok);
+                    if (res.ok) {
+                        setIsAuthenticated(true);
+                    } else {
+                        console.warn("Auth Guard: Refresh endpoint returned non-200 status", res.status);
+                        setIsAuthenticated(false);
+                    }
                 }
             } catch (err) {
                 console.error("Auth check failed:", err);
@@ -46,11 +50,10 @@ export default function AuthGuard() {
     if (loading) {
         return (
             <div className="flex h-screen w-full items-center justify-center bg-zinc-950">
-                <Loader2 size={32} style={{ color: COLORS.signal }} className="animate-spin" />
+                <Loader2 size={32} style={{ color: COLORS?.signal || "#00f0ff" }} className="animate-spin" />
             </div>
         );
     }
 
-    // If valid cookie exists, render protected route (<Outlet />), otherwise redirect to /login
     return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />;
 }
