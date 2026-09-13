@@ -5,11 +5,16 @@ const STORE_SIGNED_PREKEY = "signedPreKey";
 const STORE_ONE_TIME_PREKEYS = "oneTimePreKeys";
 
 let dbInstance = null;
+let openingPromise = null;
+
 function openDb(){
 
     if(dbInstance) return Promise.resolve(dbInstance);
 
-    return new Promise((resolve, reject) => {
+    if (openingPromise) return openingPromise;
+
+
+    openingPromise = new Promise((resolve, reject) => {
         const request = indexedDB.open(DB_NAME, DB_VERSION);
 
         request.onupgradeneeded = () => {
@@ -22,11 +27,34 @@ function openDb(){
             }
         };
         request.onsuccess = () => {
-            dbInstance = request.result;
-            resolve(request.result);
+            const db = request.result;
+
+            db.onclose = () => {
+                if (dbInstance === db) {
+                    dbInstance = null;
+                }
+            };
+            db.onversionchange = () => {
+                db.close();
+
+                if (dbInstance === db) {
+                    dbInstance = null;
+                }
+            };
+            dbInstance = db;
+            openingPromise = null;
+
+            resolve(db);
         };
-        request.onerror = () => reject(request.error);
+        request.onerror = () =>{
+            openingPromise = null;
+            reject(request.error);
+        };
+        request.onblocked = () => {
+            console.warn("IndexedDB open blocked");
+        };
     });
+    return openingPromise;
 }
 
 function wrapRequest(request){
@@ -66,7 +94,7 @@ export const keyStorage = {
     async saveOneTimePreKeys(records){
         const db = await openDb();
         const store = db.transaction(STORE_ONE_TIME_PREKEYS, 'readwrite').objectStore(STORE_ONE_TIME_PREKEYS);
-        await Promise.all(records.map((r) => wrapRequest(store.put(r))));
+        await Promise.all(records.map((r) => wrapRequest(store.put(r))));  // TODO: add transaction here
     },
     async getOneTimePreKey(keyId) {
         const db = await openDb();

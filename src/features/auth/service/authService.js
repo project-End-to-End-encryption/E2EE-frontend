@@ -1,10 +1,12 @@
 import {signupUser, loginUser} from "../api/auth.api.js";
 import webSocketClient from "../../../infrastructure/websocket/WebSocketClient.js";
 import {generateAndRegisterKeys} from "./keyBundle.js";
+import { authStore } from '../storage/authStore.js'
 
 export const register = async ({email, password, reservationId }) => {
     const result = await signupUser({email,password,reservationId});
     const socket = await webSocketClient.connect();
+    authStore.setUserId(result.userId)
     await generateAndRegisterKeys(socket);
     return result;
 };
@@ -12,6 +14,7 @@ export const register = async ({email, password, reservationId }) => {
 export const login = async ({email, password}) => {
     const result = await loginUser({email,password});
     const socket = await webSocketClient.connect();
+    authStore.setUserId(result.userId)
     await generateAndRegisterKeys(socket);
     return result;
 }
