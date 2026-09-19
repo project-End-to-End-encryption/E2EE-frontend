@@ -50,5 +50,7 @@ export const TOPICS = {
     // v2 - reserved so the UI can already listen for them
     CALL_INCOMING: 'call:incoming',
     CALL_STATE: 'call:state',
-    MEDIA_UPLOAD_PROGRESS: 'media:uploadProgress'
+    MEDIA_UPLOAD_PROGRESS: 'media:uploadProgress',
+
+    MBK_STATE: 'mbk:state',
 };
