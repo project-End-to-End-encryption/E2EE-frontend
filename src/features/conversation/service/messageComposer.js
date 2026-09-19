@@ -1,7 +1,7 @@
 import {rpc} from "../../../infrastructure/websocket/socketRpc.js";
 import {SOCKET_EVENTS} from "../../../shared/constants/socketEvents.js";
 import {SessionManager} from "./session/SessionManager.js";
-import {archiveCrypto} from "./archiveCrypto .js";
+import {archiveCrypto} from "./archiveCrypto.js";
 import {conversationRepo, messageRepo, outboxRepo} from "../../../infrastructure/storage/repos.js";
 import {bus, TOPICS} from "../../../infrastructure/websocket/eventBus.js";
 import {authStore} from "../../auth/storage/authStore.js";
@@ -11,7 +11,14 @@ import {messageSync} from "../../sync/messageSync.js";
 const uuid = () => crypto.randomUUID();
 
 
-export async function send(conversationId, body, contentType = 'text'){
+/**
+ * `attachments` is the SERVER-side descriptor list from media:completeUpload -
+ * opaque object keys and ciphertext sizes. Everything that describes the
+ * plaintext (file name, mime type, and the media key itself) lives in `body`,
+ * which is sealed under the CAK for the archive and under the ratchet for
+ * transport before either leaves this function.
+ */
+export async function send(conversationId, body, contentType = 'text', {attachments = []} = {}){
 
     const conversation = await conversationRepo.get(conversationId);
     if (!conversation) throw new Error('CONVERSATION_NOT_CACHED');
@@ -33,6 +40,7 @@ export async function send(conversationId, body, contentType = 'text'){
         senderDeviceId: selfDeviceId,
         contentType,
         body: fullBody,
+        attachments,
         sentAt,
         receivedAt: Date.now(),
         isRevoked: false,
@@ -41,11 +49,11 @@ export async function send(conversationId, body, contentType = 'text'){
     };
 
     await messageRepo.put(optimistic);
-    await outboxRepo.add({ clientMessageId, conversationId, body: fullBody, contentType });
+    await outboxRepo.add({ clientMessageId, conversationId, body: fullBody, contentType, attachments });
     bus.emit(TOPICS.MESSAGE_ADDED, { conversationId, message: optimistic });
 
     try{
-        const result = await deliver({ conversation, clientMessageId, fullBody, contentType, sentAt });
+        const result = await deliver({ conversation, clientMessageId, fullBody, contentType, sentAt, attachments });
 
         const confirmed = { ...optimistic, seq: result.seq, messageId: result.messageId, state: 'sent' };
 
@@ -80,7 +88,7 @@ export async function send(conversationId, body, contentType = 'text'){
     }
 }
 
-async function deliver({conversation, clientMessageId, fullBody, contentType, sentAt}){
+async function deliver({conversation, clientMessageId, fullBody, contentType, sentAt, attachments = []}){
 
     const conversationId = conversation._id;
     const epoch = conversation.keyEpoch ?? 1;
@@ -117,6 +125,7 @@ async function deliver({conversation, clientMessageId, fullBody, contentType, se
         contentType,
         archive,
         envelopes,
+        attachments,
         sentAt
     });
 
@@ -156,6 +165,7 @@ export async function flushOutbox(){
                 clientMessageId: entry.clientMessageId,
                 fullBody: entry.body,
                 contentType: entry.contentType,
+                attachments: entry.attachments ?? [],
                 sentAt: entry.body.sentAt
             });
 
@@ -185,8 +195,22 @@ export const sendMedia = (conversationId, { kind, storageKey, mediaKeyBase64, iv
         width, height               // image / video thumbnails
     }, kind === 'voice' ? 'audio' : kind);
 
+/**
+ * The multi-attachment path used by the Composer.
+ *
+ *   bodyAttachments   -> encrypted body: file names, mime types, media keys
+ *   serverAttachments -> message:send `attachments`: object keys, sizes
+ */
+export const sendAttachments = (conversationId, { text = '', bodyAttachments = [], serverAttachments = [] }) =>
+    send(
+        conversationId,
+        { kind: 'media', text, attachments: bodyAttachments },
+        'media',
+        { attachments: serverAttachments }
+    );
+
 export const sendCallEvent = (conversationId, { callId, action, media, durationMs }) =>
     send(conversationId, { kind: 'callEvent', callId, action, media, durationMs }, 'call');
 
-export const messageComposer = { send, sendText, sendMedia, sendCallEvent, flushOutbox };
+export const messageComposer = { send, sendText, sendMedia, sendAttachments, sendCallEvent, flushOutbox };
 
