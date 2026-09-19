@@ -108,6 +108,17 @@ async function handleEnvelope(envelope, { queued }) {
         case 'file':
             return toMessageRow(envelope, body, body.kind);
 
+        // One message, zero or more attachments, optional caption. The media
+        // keys are inside `body.attachments[]` - they arrived sealed under the
+        // ratchet and are never persisted anywhere the server can reach.
+        case 'media':
+            return toMessageRow(envelope, body, 'media');
+
+        // Conversation-level events (archive key established, membership
+        // change). Stored so history stays contiguous; the UI filters them.
+        case 'system':
+            return toMessageRow(envelope, body, 'system');
+
         case 'callEvent':
             // body = { kind, callId, action: 'missed'|'ended', durationMs }
             return toMessageRow(envelope, body, 'call');
@@ -177,11 +188,29 @@ export function previewTextFor(message) {
         case 'image': return 'Photo';
         case 'video': return 'Video';
         case 'file': return message.body?.filename ?? 'File';
+        case 'media': return previewForAttachments(message);
+        case 'system': return '';
         case 'call': return message.body?.action === 'missed' ? 'Missed call' : 'Call';
         default: return '';
     }
 }
 
+
+/** "Photo", "3 attachments", or the caption if the sender wrote one. */
+function previewForAttachments(message) {
+    const caption = message.body?.text?.trim();
+    if (caption) return caption;
+
+    const attachments = message.body?.attachments ?? [];
+    if (attachments.length > 1) return `${attachments.length} attachments`;
+
+    switch (attachments[0]?.category) {
+        case 'image': return 'Photo';
+        case 'video': return 'Video';
+        case 'audio': return 'Audio';
+        default: return attachments[0]?.originalFileName ?? 'File';
+    }
+}
 
 export async function findGaps(conversationId) {
     const row = await conversationRepo.get(conversationId);
