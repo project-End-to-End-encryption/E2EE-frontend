@@ -205,8 +205,8 @@ export const outboxRepo = {
 };
 
 export const archiveKeyRepo = {
-    put({ conversationId, epoch, keyBytes }) {
-        return put(STORES.ARCHIVE_KEYS, { conversationId, epoch: Number(epoch), keyBytes });
+    put({ conversationId, epoch, key }) {
+        return put(STORES.ARCHIVE_KEYS, { conversationId, epoch: Number(epoch), key });
     },
     async putMany(rows) {
         if (!rows.length) return;
