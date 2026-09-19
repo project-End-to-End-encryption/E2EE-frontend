@@ -1,11 +1,38 @@
-import { senderKeyStorage } from '../../../infrastructure/crypto/storage/senderKeyStorage.js'
-import { SessionManager } from '../service/session/SessionManager.js'
-import { createSenderKey, senderKeyEncrypt, senderKeyDecrypt } from './senderKeyCrypto.js'
-import { stringToBuffer, bufferToString } from '../../../shared/utils/encoding.js'
+import {senderKeyStorage} from '../../../infrastructure/crypto/storage/senderKeyStorage.js'
+import {SessionManager} from '../service/session/SessionManager.js'
+import {createSenderKey, senderKeyDecrypt, senderKeyEncrypt} from './senderKeyCrypto.js'
+import {bufferToString, stringToBuffer} from '../../../shared/utils/encoding.js'
 import webSocketClient from "../../../infrastructure/websocket/WebSocketClient.js";
 import {getDeviceId} from "../../../shared/utils/deviceId.js";
 
 export const GroupSessionManager = {
+
+    async createGroupAndDistributeKey({groupId}) {
+        const socket = await webSocketClient.connect();
+
+        const memberDevices = await new Promise((resolve, reject) => {
+            socket.emit(
+                'groups:getMemberDevices',
+                {groupId},
+                (ack) => {
+                    if (ack?.ok) {
+                        resolve(ack.devices);
+                    } else {
+                        reject(
+                            new Error(
+                                ack?.error ||
+                                'FAILED_TO_GET_MEMBER_DEVICES'
+                            )
+                        );
+                    }
+                }
+            );
+        });
+        return this.distributeSenderKey({
+            groupId,
+            memberDevices
+        });
+    },
     async distributeSenderKey({groupId, memberDevices }){
         const senderKey = createSenderKey();
         await senderKeyStorage.saveOwnSenderKey(groupId, senderKey);
@@ -17,13 +44,16 @@ export const GroupSessionManager = {
             iteration: senderKey.iteration
         });
         const socket = await webSocketClient.connect();
-        await Promise.allSettled(memberDevices.map(async ({userId, deviceId}) => {
-            const envelop = await SessionManager.encryptDirectMessage({
-                toUserId: userId, toDeviceId: deviceId, plaintext: distributionPayload
-            });
+        return await Promise.allSettled(memberDevices.map(async ({userId, deviceId}) => {
+                const envelope = await SessionManager.encryptDirectMessage({
+                    toUserId: userId, toDeviceId: deviceId, plaintext: distributionPayload
+                });
 
-            socket.emit('message:direct', envelop, () => {});
-        }));
+                socket.emit('message:direct', envelope, () => {
+                });
+                return {userId, deviceId}
+            })
+        )
     },
     async receiveSenderKeyDistribution({fromUserId, fromDeviceId, groupId, chainKeyBase64, iteration}) {
         await senderKeyStorage.saveReceivedSenderKey(groupId, fromUserId, fromDeviceId, {
