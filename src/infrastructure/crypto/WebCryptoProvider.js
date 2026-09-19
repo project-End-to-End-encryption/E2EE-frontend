@@ -21,7 +21,7 @@ class WebCryptoProvider extends ICryptoProvider{
     }
     // one time pre key
     async _generateX25519KeyPair(){
-       return this.generateX25519KeyPair();
+        return this.generateX25519KeyPair();
     }
 
     async generateSignedPreKey(identityPrivateKey, keyId){

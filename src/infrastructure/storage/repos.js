@@ -37,7 +37,7 @@ export const conversationRepo = {
                 const readRequest = store.get(row._id);
                 readRequest.onsuccess = () => {
                     const existing = readRequest.result;
-                    stores.put({
+                    store.put({
                         ...row,
                         preview: existing?.preview ?? null,       // decrypted last message
                         previewSeq: existing?.previewSeq ?? 0,

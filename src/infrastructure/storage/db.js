@@ -124,7 +124,7 @@ export async function get(storeName, key){
 }
 
 export async function put(storeName, value){
-    const db = openDb();
+    const db = await openDb();
     const transaction = db.transaction(storeName, 'readwrite');
     transaction.objectStore(storeName).put(value);
     return new Promise((resolve,reject) => {
@@ -134,7 +134,7 @@ export async function put(storeName, value){
 }
 
 export async function del(storeName, key){
-    const db = openDb();
+    const db = await openDb();
     const transaction = db.transaction(storeName, 'readwrite');
     transaction.objectStore(storeName).delete(key);
     return new Promise((resolve,reject) => {
@@ -153,7 +153,7 @@ export {wrap, openDb};
 // on logout nuke cache
 export async function clearCache(){
     const names = Object.values(STORES);
-    await tx(name, 'readwrite', (stores) => {
+    await tx(names, 'readwrite', (stores) => {
         for(const name of names) stores[name].clear();
     })
 }

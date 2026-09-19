@@ -277,13 +277,13 @@ function Nav({ onSignup, onLogin }) {
             >
                 <div
                     onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-    className="flex items-center gap-2 cursor-pointer"
->
-    <img src={E2EELogoSVG} alt="E2EE Logo" className="h-22" />
-    <span
-        style={{ color: COLORS.paper, fontFamily: DISPLAY_FONT }}
-        className="text-lg font-medium"
-    >
+                    className="flex items-center gap-2 cursor-pointer"
+                >
+                    <img src={E2EELogoSVG} alt="E2EE Logo" className="h-22" />
+                    <span
+                        style={{ color: COLORS.paper, fontFamily: DISPLAY_FONT }}
+                        className="text-lg font-medium"
+                    >
         E2EE
                     </span>
                 </div>
