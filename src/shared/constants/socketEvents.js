@@ -24,6 +24,18 @@ export const SOCKET_EVENTS = {
     CONVERSATION_CREATED: 'conversation:created',
     CONVERSATION_UPDATED: 'conversation:updated',
 
+    // users (directory lookup)
+
+    USERS_SEARCH: 'users:search',
+    USERS_PROFILES: 'users:profiles',
+
+    // encrypted media
+
+    MEDIA_REQUEST_UPLOAD: 'media:requestUpload',
+    MEDIA_COMPLETE_UPLOAD: 'media:completeUpload',
+    MEDIA_REQUEST_DOWNLOAD: 'media:requestDownload',
+    MEDIA_ABORT_UPLOAD: 'media:abortUpload',
+
     // sideBar sync
     SIDEBAR_SYNC: 'sidebar:sync',
     SIDEBAR_PATCH: 'sidebar:patch',

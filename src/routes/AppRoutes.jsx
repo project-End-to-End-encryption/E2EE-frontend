@@ -4,8 +4,9 @@ import Homepage from "../pages/Homepage";
 import LoginPage from "../features/auth/pages/LoginPage";
 import SignupPage from "../features/auth/pages/SignupPage";
 import CheckUserName from "../features/auth/pages/CheckUserName";
-import ProfileSetup from "../features/auth/pages/ProfileSetup";
+import ProfileSetup from "../features/auth/pages/profileSetup.jsx";
 import ChatPage from "../features/chats/pages/ChatPage.jsx";
+import KeysPage from "../features/recovery/pages/KeysPage.jsx";
 import AuthGuard from "./AuthGuard.jsx";
 
 export default function AppRoutes() {
@@ -21,6 +22,7 @@ export default function AppRoutes() {
             <Route element={<AuthGuard />}>
                 <Route path="/signup/profile" element={<ProfileSetup />} />
                 <Route path="/chat" element={<ChatPage />} />
+                <Route path="/keys" element={<KeysPage />} />
             </Route>
         </Routes>
     );
