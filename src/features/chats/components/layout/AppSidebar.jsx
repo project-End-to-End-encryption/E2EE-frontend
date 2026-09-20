@@ -113,34 +113,48 @@ export default function AppSidebar({
                 onCloseSettings={closeSettings}
             />
 
-            <aside className="ec-list" aria-label="Conversations">
-                <div className="ec-brand">
-                    <h2 className="ec-brand__mark">E<b>2</b>EE</h2>
-                    <p className="ec-brand__tag">Chat Beyond Limits</p>
+            <aside className="flex flex-col flex-1 md:flex-none w-full md:w-[340px] min-h-0 h-full border-r border-[var(--line)] bg-[var(--surface)] select-none overflow-hidden" aria-label="Conversations">
+                <div className="px-5 pt-5 pb-2">
+                    <h2 className="m-0 font-bold text-[22px] leading-none tracking-tight [font-family:var(--font-display)] text-[var(--ink)]">
+                        E<b className="text-[var(--accent)] font-extrabold not-italic">2</b>EE
+                    </h2>
+                    <p className="m-0 mt-1 font-semibold text-[11px] leading-none tracking-wider uppercase [font-family:var(--font-body)] text-[var(--ink-3)]">
+                        Chat Beyond Limits
+                    </p>
                 </div>
 
                 <SearchBar value={query} onChange={setQuery} isSearching={search.isSearching} />
 
                 {!searching && conversations.length > 0 && (
-                    <div className="ec-chips" role="group" aria-label="Filter conversations">
+                    <div className="flex items-center gap-1.5 px-4 py-2 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden" role="group" aria-label="Filter conversations">
                         {FILTERS.map(({ id, label }) => (
                             <button
                                 key={id}
                                 type="button"
                                 aria-pressed={filter === id}
                                 onClick={() => setFilter(id)}
-                                className={`ec-chip ${filter === id ? 'is-active' : ''}`}
+                                className={`inline-flex items-center gap-1.5 px-3 py-[6px] border-0 rounded-full font-medium text-[13px] leading-none [font-family:var(--font-body)] whitespace-nowrap transition-colors duration-150 select-none ${
+                                    filter === id
+                                        ? 'bg-[var(--surface-3)] text-[var(--ink)] font-semibold'
+                                        : 'bg-transparent text-[var(--ink-2)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]'
+                                }`}
                             >
                                 {label}
                                 {id === 'unread' && unreadRows > 0 && (
-                                    <span className="ec-chip__n">{unreadRows}</span>
+                                    <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[var(--accent)] text-white font-bold text-[10.5px] leading-none">
+                                        {unreadRows}
+                                    </span>
                                 )}
                             </button>
                         ))}
                     </div>
                 )}
 
-                {openError && <p className="ec-alert" role="alert">{messageFor(openError)}</p>}
+                {openError && (
+                    <p className="mx-4 my-2 px-3 py-2 rounded-[12px] bg-[var(--danger-soft)] text-[var(--danger)] font-medium text-[13px] leading-[1.35] [font-family:var(--font-body)]" role="alert">
+                        {messageFor(openError)}
+                    </p>
+                )}
 
                 {searching && (
                     <UserSearchResults

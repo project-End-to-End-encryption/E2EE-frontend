@@ -122,26 +122,31 @@ export default function Composer({ conversationId, onSendText, disabled = false,
     const canSend = !disabled && !busy && (text.trim().length > 0 || staged.length > 0);
 
     return (
-        <div className="ec-composer">
+        <div className="relative flex-none w-full max-w-[964px] mx-auto px-[10px] pt-1 pb-3 md:px-5 md:pt-[6px] md:pb-[18px] select-none">
 
             {(staged.length > 0 || uploads.length > 0) && (
-                <div className="ec-stage">
+                <div className="flex flex-wrap gap-2 mx-2 mb-[10px]">
                     {staged.map((file, index) => (
-                        <span key={`${file.name}-${index}`} className="ec-pill">
-                            <span className="ec-pill__name">{file.name}</span>
-                            <button type="button" onClick={() => removeStaged(index)} aria-label={`Remove ${file.name}`}>
-                                <X />
+                        <span key={`${file.name}-${index}`} className="inline-flex items-center gap-2 max-w-full pl-3 pr-2 py-[6px] border border-[var(--line)] rounded-full bg-[var(--surface)] text-[var(--ink)] font-medium text-[12.5px] leading-[1.2] [font-family:var(--font-body)] shadow-[var(--shadow-bubble)]">
+                            <span className="max-w-[170px] truncate">{file.name}</span>
+                            <button
+                                type="button"
+                                onClick={() => removeStaged(index)}
+                                aria-label={`Remove ${file.name}`}
+                                className="inline-grid place-items-center w-[22px] h-[22px] p-0 border-0 rounded-full bg-[var(--surface-3)] text-[var(--ink)]"
+                            >
+                                <X className="w-[13px] h-[13px]" />
                             </button>
                         </span>
                     ))}
 
                     {uploads.map((upload) => (
-                        <span key={upload.id} className={`ec-pill ${upload.error ? 'is-error' : ''}`}>
+                        <span key={upload.id} className={`inline-flex items-center gap-2 max-w-full pl-3 pr-2 py-[6px] border rounded-full font-medium text-[12.5px] leading-[1.2] [font-family:var(--font-body)] shadow-[var(--shadow-bubble)] ${upload.error ? 'bg-[var(--danger-soft)] border-transparent text-[var(--danger)]' : 'bg-[var(--surface)] border-[var(--line)] text-[var(--ink)]'}`}>
                             {!upload.error && upload.phase !== 'done' && (
-                                <Loader2 className="ec-spin" />
+                                <Loader2 className="w-[13px] h-[13px] animate-[ec-spin_0.9s_linear_infinite]" />
                             )}
-                            <span className="ec-pill__name">{upload.name}</span>
-                            <span className="ec-pill__sub">
+                            <span className="max-w-[170px] truncate">{upload.name}</span>
+                            <span className={upload.error ? 'text-inherit' : 'text-[var(--ink-2)]'}>
                                 {upload.error ? upload.error : `${upload.phase} ${upload.percent}%`}
                             </span>
                         </span>
@@ -150,26 +155,28 @@ export default function Composer({ conversationId, onSendText, disabled = false,
             )}
 
             {stageError && (
-                <p className="ec-composer__error" role="alert">{messageFor(stageError)}</p>
+                <p className="mx-[10px] mb-[10px] text-[var(--danger)] font-medium text-[13px] leading-[1.35] [font-family:var(--font-body)]" role="alert">
+                    {messageFor(stageError)}
+                </p>
             )}
 
-            <div className="ec-composer__bar">
+            <div className="flex items-end gap-1 p-[7px] pl-[8px] border border-[var(--line)] rounded-[32px] bg-[var(--surface)] shadow-[var(--shadow-float)] transition-[box-shadow,border-color] duration-150 focus-within:border-[var(--focus)] focus-within:shadow-[var(--shadow-float),0_0_0_3px_color-mix(in_srgb,var(--focus)_22%,transparent)]">
 
-                <div className="ec-composer__attachwrap" ref={menuRef}>
+                <div className="relative flex" ref={menuRef}>
                     <button
                         type="button"
-                        className="ec-iconbtn"
+                        className="inline-flex items-center justify-center flex-none w-[42px] h-[42px] p-0 border-0 rounded-full bg-transparent text-[var(--ink-2)] transition-[background-color,color,transform] duration-150 hover:enabled:bg-[var(--surface-3)] hover:enabled:text-[var(--ink)] active:enabled:scale-[0.94] disabled:opacity-45"
                         aria-label="Attach"
                         aria-haspopup="menu"
                         aria-expanded={menuOpen}
                         disabled={disabled}
                         onClick={() => setMenuOpen((open) => !open)}
                     >
-                        <Paperclip />
+                        <Paperclip className="w-5 h-5" />
                     </button>
 
                     {menuOpen && (
-                        <div className="ec-attachmenu" role="menu">
+                        <div className="absolute left-[8px] bottom-[calc(100%+8px)] z-30 w-[190px] p-[6px] border border-[var(--line)] rounded-[18px] bg-[var(--surface)] shadow-[var(--shadow-menu)] animate-[ec-pop_0.14s_ease-out]" role="menu">
                             <AttachOption Icon={ImageIcon} label="Photo" onClick={() => openPicker('image/*')} />
                             <AttachOption Icon={Film} label="Video" onClick={() => openPicker('video/*')} />
                             <AttachOption Icon={FileText} label="Document" onClick={() => openPicker('*/*')} />
@@ -188,7 +195,7 @@ export default function Composer({ conversationId, onSendText, disabled = false,
                     onKeyDown={handleKeyDown}
                     aria-label="Message"
                     placeholder={disabled ? 'Waiting for the conversation key...' : 'Write a message'}
-                    className="ec-composer__input"
+                    className="flex-1 min-w-0 max-h-[140px] px-2 py-[11px] border-0 bg-transparent text-[var(--ink)] font-normal text-[15px] leading-[1.4] [font-family:var(--font-body)] resize-none outline-none select-text placeholder:text-[var(--ink-3)] placeholder:opacity-100 disabled:cursor-not-allowed focus-visible:outline-none"
                 />
 
                 {trailing}
@@ -198,9 +205,9 @@ export default function Composer({ conversationId, onSendText, disabled = false,
                     aria-label="Send"
                     onClick={handleSend}
                     disabled={!canSend}
-                    className="ec-send"
+                    className="inline-grid place-items-center flex-none w-[46px] h-[46px] p-0 border-0 rounded-full bg-[linear-gradient(160deg,var(--bubble-out-a),var(--bubble-out-b))] text-white shadow-[0_8px_18px_-8px_var(--bubble-out-b)] transition-[transform,opacity,background-color] duration-150 hover:enabled:-translate-y-[1px] active:enabled:scale-[0.94] disabled:bg-[var(--surface-3)] disabled:text-[var(--ink-3)] disabled:shadow-none"
                 >
-                    {busy ? <Loader2 className="ec-spin" /> : <Send />}
+                    {busy ? <Loader2 className="w-5 h-5 -ml-[2px] animate-[ec-spin_0.9s_linear_infinite]" /> : <Send className="w-5 h-5 -ml-[2px]" />}
                 </button>
             </div>
         </div>
@@ -209,8 +216,16 @@ export default function Composer({ conversationId, onSendText, disabled = false,
 
 function AttachOption({ Icon, label, onClick }) {
     return (
-        <button type="button" role="menuitem" onClick={onClick} className="ec-menu__item">
-            <span><Icon />{label}</span>
+        <button
+            type="button"
+            role="menuitem"
+            onClick={onClick}
+            className="flex items-center justify-between gap-[10px] w-full p-[10px] border-0 rounded-[12px] bg-transparent text-[var(--ink)] font-medium text-[14px] leading-[1.2] [font-family:var(--font-body)] text-left hover:bg-[var(--surface-2)] transition-colors duration-120"
+        >
+            <span className="inline-flex items-center gap-[10px]">
+                <Icon className="w-[17px] h-[17px] flex-none text-[var(--accent-text)]" />
+                {label}
+            </span>
         </button>
     );
 }

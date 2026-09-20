@@ -21,31 +21,40 @@ export default function ChatHeader({ conversation, keyState, actions = null, onB
     const name = conversation?.displayName || 'Conversation';
 
     return (
-        <header className="ec-header">
+        <header className="flex flex-none items-center gap-3 px-[14px] py-[10px] md:px-5 md:py-3 bg-[var(--glass-strong)] border-b border-[var(--line)] backdrop-blur-[14px]">
             {onBack && (
-                <button type="button" className="ec-back" onClick={onBack} aria-label="Back to conversations">
-                    <ChevronLeft />
+                <button
+                    type="button"
+                    className="inline-flex md:hidden items-center justify-center w-10 h-10 -ml-2 p-0 border-0 rounded-[14px] bg-transparent text-[var(--ink)] hover:bg-[var(--surface-3)] transition-colors"
+                    onClick={onBack}
+                    aria-label="Back to conversations"
+                >
+                    <ChevronLeft className="w-[22px] h-[22px]" />
                 </button>
             )}
 
             <Avatar name={name} seed={conversation?._id} group={isGroup} size={44} />
 
-            <div className="ec-header__info">
-                <h3 className="ec-header__name">{name}</h3>
-                <p className="ec-header__sub">
-                    <span>
-                        <ShieldCheck aria-hidden="true" />
+            <div className="flex-auto min-w-0">
+                <h3 className="m-0 truncate font-semibold text-[17px] leading-[1.2] text-[var(--ink)] [font-family:var(--font-display)]">
+                    {name}
+                </h3>
+                <p className="flex flex-wrap items-center gap-x-3 gap-y-[2px] mt-[3px] font-medium text-[12.5px] leading-[1.2] text-[var(--ink-2)]">
+                    <span className="inline-flex items-center gap-[5px]">
+                        <ShieldCheck className="w-[13px] h-[13px] text-[var(--ok)]" aria-hidden="true" />
                         {keyState === 'awaitingKey'
                             ? 'Waiting for the conversation key'
                             : 'End-to-end encrypted'}
                     </span>
                     {isGroup && keyState !== 'awaitingKey' && (
-                        <span>{memberCount} {memberCount === 1 ? 'member' : 'members'}</span>
+                        <span className="inline-flex items-center gap-[5px]">
+                            {memberCount} {memberCount === 1 ? 'member' : 'members'}
+                        </span>
                     )}
                 </p>
             </div>
 
-            {actions && <div className="ec-header__actions">{actions}</div>}
+            {actions && <div className="flex items-center gap-1">{actions}</div>}
         </header>
     );
 }

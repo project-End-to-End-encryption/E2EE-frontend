@@ -148,16 +148,18 @@ export default function MessageList({
 
     if (loading && !messages.length) {
         return (
-            <div className="ec-thread-empty" role="status" aria-label="Loading messages">
-                <Loader2 className="ec-spin" width={22} height={22} style={{ color: 'var(--ink-2)' }} />
+            <div className="flex flex-auto items-center justify-center p-6" role="status" aria-label="Loading messages">
+                <Loader2 className="w-[22px] h-[22px] text-[var(--ink-2)] animate-[ec-spin_0.9s_linear_infinite]" />
             </div>
         );
     }
 
     if (!messages.length) {
         return (
-            <div className="ec-thread-empty">
-                <p>No messages yet. Say something.</p>
+            <div className="flex flex-auto items-center justify-center p-6">
+                <p className="m-0 px-[18px] py-[9px] border border-[var(--line-soft)] rounded-full bg-[var(--glass-strong)] text-[var(--ink-2)] font-medium text-[13.5px] leading-[1.2] [font-family:var(--font-body)]">
+                    No messages yet. Say something.
+                </p>
             </div>
         );
     }
@@ -169,16 +171,24 @@ export default function MessageList({
     };
 
     return (
-        <div ref={scroller} onScroll={handleScroll} className="ec-scroll">
-            <div className="ec-thread">
+        <div ref={scroller} onScroll={handleScroll} className="flex-auto min-h-0 overflow-y-auto [scrollbar-width:thin] [scrollbar-color:color-mix(in_srgb,var(--ink)_30%,transparent)_transparent]">
+            <div className="flex flex-col w-full max-w-[920px] mx-auto px-3 py-2 md:px-6 md:py-3">
                 {hasMore && (
-                    <button type="button" onClick={onLoadOlder} className="ec-more">
+                    <button
+                        type="button"
+                        onClick={onLoadOlder}
+                        className="self-center mt-1 mb-2 px-4 py-[7px] border border-[var(--line-soft)] rounded-full bg-[var(--glass)] text-[var(--ink)] font-semibold text-[12.5px] leading-none [font-family:var(--font-body)] backdrop-blur-md hover:bg-[var(--surface)] transition-colors"
+                    >
                         Load earlier messages
                     </button>
                 )}
 
                 {items.map((item) => item.type === 'day'
-                    ? <div key={item.key} className="ec-day">{item.label}</div>
+                    ? (
+                        <div key={item.key} className="self-center mt-4 mb-[6px] px-[14px] py-[6px] border border-[var(--line-soft)] rounded-full bg-[var(--glass-strong)] text-[var(--ink-2)] font-semibold text-[12.5px] leading-none [font-family:var(--font-body)] backdrop-blur-md">
+                            {item.label}
+                        </div>
+                    )
                     : (
                         <MessageBubble
                             key={item.key}

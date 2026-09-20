@@ -58,7 +58,11 @@ function ChatLayout() {
   const view = showChat ? 'chat' : activeTab === 'chat' ? 'list' : 'panel';
 
   return (
-      <div className="ec-root" data-theme={theme} data-view={view}>
+      <div
+          className="ec-root flex max-md:flex-col md:flex-row w-full h-[100dvh] overflow-hidden bg-[var(--canvas)] text-[var(--ink)]"
+          data-theme={theme}
+          data-view={view}
+      >
         <AppSidebar
             activeTab={activeTab}
             onTabChange={setActiveTab}

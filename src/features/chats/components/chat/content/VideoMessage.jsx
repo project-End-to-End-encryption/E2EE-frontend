@@ -11,7 +11,14 @@ export default function VideoMessage({ conversationId, attachment }) {
     const { url, loading, progress, error, errorMessage, load } = useAttachment(conversationId, attachment);
 
     if (url) {
-        return <video src={url} controls preload="metadata" className="ec-att-video" />;
+        return (
+            <video
+                src={url}
+                controls
+                preload="metadata"
+                className="block w-full max-w-full max-h-[400px] rounded-[14px] bg-black/10 dark:bg-black/40"
+            />
+        );
     }
 
     return (
@@ -19,18 +26,19 @@ export default function VideoMessage({ conversationId, attachment }) {
             type="button"
             onClick={load}
             disabled={loading}
-            className="ec-att-placeholder"
-            style={{ width: 240, height: 128 }}
+            className="flex flex-col items-center justify-center gap-[6px] w-[240px] h-[128px] max-w-full rounded-[14px] bg-[color-mix(in_srgb,currentColor_6%,transparent)] border border-[color-mix(in_srgb,currentColor_10%,transparent)] font-medium text-[13px] leading-[1.35] [font-family:var(--font-body)] transition-colors hover:enabled:bg-[color-mix(in_srgb,currentColor_12%,transparent)] active:enabled:scale-[0.98] disabled:cursor-not-allowed"
         >
             {loading ? (
                 <>
-                    <Loader2 className="ec-spin" width={18} height={18} />
-                    <span>{progress ? `${progress}%` : 'Decrypting...'}</span>
+                    <Loader2 className="w-[18px] h-[18px] opacity-70 animate-[ec-spin_0.9s_linear_infinite]" />
+                    <span className="opacity-90">{progress ? `${progress}%` : 'Decrypting...'}</span>
                 </>
             ) : (
                 <>
-                    <Play width={18} height={18} />
-                    <span>{error ? errorMessage : 'Play video'}</span>
+                    <Play className={`w-[18px] h-[18px] ${error ? 'text-[var(--danger)] opacity-80' : 'opacity-70'}`} />
+                    <span className={error ? 'text-[var(--danger)] px-3 text-center' : 'opacity-90'}>
+                        {error ? errorMessage : 'Play video'}
+                    </span>
                 </>
             )}
         </button>

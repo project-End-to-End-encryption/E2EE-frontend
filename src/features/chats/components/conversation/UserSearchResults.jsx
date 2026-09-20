@@ -12,8 +12,8 @@ import Avatar from '../../../../components/common/Avatar.jsx';
  */
 export default function UserSearchResults({ status, users, errorMessage, onSelect, busyUserId }) {
     const hint = (Icon, text, spin = false) => (
-        <p className="ec-hint" role="status">
-            <Icon className={spin ? 'ec-spin' : undefined} />
+        <p className="flex items-center justify-center gap-2 m-0 mt-8 px-4 text-center font-medium text-[13.5px] leading-[1.4] [font-family:var(--font-body)] text-[var(--ink-3)] select-none" role="status">
+            <Icon className={`w-[18px] h-[18px] flex-none ${spin ? 'animate-[ec-spin_0.9s_linear_infinite]' : ''}`} />
             <span>{text}</span>
         </p>
     );
@@ -25,8 +25,10 @@ export default function UserSearchResults({ status, users, errorMessage, onSelec
     if (status !== 'results') return null;
 
     return (
-        <div className="ec-people">
-            <p className="ec-section-label">People</p>
+        <div className="flex flex-col gap-[2px] w-full p-2">
+            <p className="m-0 px-3 py-2 font-semibold text-[11.5px] leading-none uppercase tracking-wider [font-family:var(--font-body)] text-[var(--ink-3)] select-none">
+                People
+            </p>
 
             {users.map((user) => {
                 const busy = busyUserId === user.userId;
@@ -38,23 +40,28 @@ export default function UserSearchResults({ status, users, errorMessage, onSelec
                         type="button"
                         disabled={busy}
                         onClick={() => onSelect(user)}
-                        className="ec-conv"
-                        style={busy ? { opacity: 0.6 } : undefined}
+                        className="flex items-center gap-[12px] w-full p-[10px] border-0 rounded-[16px] bg-transparent hover:bg-[var(--surface-2)] text-left transition-colors duration-150 select-none disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                         <Avatar name={name} seed={user.userId} size={40} />
 
-                        <span className="ec-conv__body">
-                            <span className="ec-conv__top">
-                                <span className="ec-conv__name">{name}</span>
+                        <span className="flex flex-col flex-1 min-w-0 justify-center mt-[-1px]">
+                            <span className="flex items-baseline justify-between gap-2">
+                                <span className="truncate font-semibold text-[15px] leading-[1.2] [font-family:var(--font-body)] text-[var(--ink)]">
+                                    {name}
+                                </span>
                             </span>
-                            <span className="ec-conv__bottom">
-                                <span className="ec-conv__preview">@{user.username}</span>
+                            <span className="flex items-center justify-between gap-3 mt-[3px]">
+                                <span className="truncate text-[13.5px] leading-[1.3] [font-family:var(--font-body)] font-normal text-[var(--ink-2)]">
+                                    @{user.username}
+                                </span>
                             </span>
                         </span>
 
-                        {busy
-                            ? <Loader2 className="ec-spin" width={16} height={16} aria-label="Opening chat" />
-                            : <UserPlus width={16} height={16} aria-hidden="true" style={{ color: 'var(--ink-3)' }} />}
+                        {busy ? (
+                            <Loader2 className="w-[16px] h-[16px] flex-none text-[var(--ink-2)] animate-[ec-spin_0.9s_linear_infinite]" aria-label="Opening chat" />
+                        ) : (
+                            <UserPlus className="w-[16px] h-[16px] flex-none text-[var(--ink-3)]" aria-hidden="true" />
+                        )}
                     </button>
                 );
             })}

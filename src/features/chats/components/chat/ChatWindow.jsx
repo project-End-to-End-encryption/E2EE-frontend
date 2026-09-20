@@ -26,10 +26,14 @@ export default function ChatWindow({ conversation, selfUserId, onBack }) {
     } = useMessages(conversationId);
 
     return (
-        <main className="ec-chat">
+        <main className="relative flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden border border-[var(--line)] max-md:order-2 [.ec-root[data-view=list]_&]:max-md:hidden shadow-[var(--shadow-card)] bg-[var(--canvas)] bg-[linear-gradient(var(--wall-wash),var(--wall-wash)),var(--wall-image)] bg-cover bg-center bg-no-repeat">
             <ChatHeader conversation={conversation} keyState={keyState} onBack={onBack} />
 
-            {errorMessage && <p className="ec-banner" role="alert">{errorMessage}</p>}
+            {errorMessage && (
+                <p className="flex-none px-5 py-2 bg-[var(--danger-soft)] text-[var(--danger)] font-medium text-[13px] leading-[1.35] [font-family:var(--font-body)]" role="alert">
+                    {errorMessage}
+                </p>
+            )}
 
             <MessageList
                 messages={messages}

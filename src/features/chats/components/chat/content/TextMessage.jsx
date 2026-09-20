@@ -8,5 +8,10 @@ import React from 'react';
  */
 export default function TextMessage({ text, children = null }) {
     if (!text) return null;
-    return <p className="ec-bubble__text">{text}{children}</p>;
+    return (
+        <p className="m-0 whitespace-pre-wrap break-words font-normal text-[15px] leading-[1.4] [font-family:var(--font-body)]">
+            {text}
+            {children}
+        </p>
+    );
 }

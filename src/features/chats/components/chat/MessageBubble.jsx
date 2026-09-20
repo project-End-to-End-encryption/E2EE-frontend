@@ -35,18 +35,22 @@ export default function MessageBubble({
     const attachments = body.attachments ?? [];
     const text = body.text ?? '';
 
-    const rowClass = `ec-row ${isOwn ? 'is-own' : ''} ${joinedPrev ? '' : 'is-start'}`;
-    const bubbleClass = [
-        'ec-bubble',
-        isOwn ? 'is-own' : '',
-        joinedPrev ? 'is-joined-prev' : '',
-        joinedNext ? 'is-joined-next' : '',
-        joinedNext ? '' : 'is-end'
-    ].filter(Boolean).join(' ');
+    const rowClass = `flex items-start gap-[10px] ${isOwn ? 'justify-end' : ''} ${joinedPrev ? 'mt-[2px]' : 'mt-[12px]'}`;
+    const stackClass = `flex flex-col min-w-0 max-w-[min(74%,560px)] ${isOwn ? 'items-end' : 'items-start'}`;
+
+    // Compute the dynamic border radii to connect joined bubbles
+    let bubbleCorners = '';
+    if (!isOwn) {
+        bubbleCorners = `${joinedPrev ? 'rounded-tl-[6px]' : ''} ${joinedNext ? 'rounded-bl-[6px]' : 'rounded-bl-[4px]'}`.trim();
+    } else {
+        bubbleCorners = `${joinedPrev ? 'rounded-tr-[6px]' : ''} ${joinedNext ? 'rounded-br-[6px]' : 'rounded-br-[4px]'}`.trim();
+    }
+
+    const bubbleBase = `relative max-w-full px-[13px] pt-[9px] pb-2 rounded-[18px] [overflow-wrap:anywhere] clearfix ${bubbleCorners}`;
 
     const lead = !isOwn && (
         joinedPrev
-            ? <span className="ec-row__gutter" />
+            ? <span className="flex-none w-[36px]" />
             : <Avatar name={senderName} seed={message.senderId} size={36} />
     );
 
@@ -54,10 +58,10 @@ export default function MessageBubble({
         return (
             <div className={rowClass}>
                 {lead}
-                <div className="ec-stack">
-                    <div className={`${bubbleClass} is-note`}>
-                        <AlertCircle aria-hidden="true" />
-                        <p style={{ margin: 0 }}>
+                <div className={stackClass}>
+                    <div className={`flex items-center gap-2 border border-dashed border-[var(--line)] bg-[var(--glass)] text-[var(--ink-2)] font-normal text-[13.5px] leading-[1.4] [font-family:var(--font-body)] italic ${bubbleBase}`}>
+                        <AlertCircle className="flex-none w-[15px] h-[15px]" aria-hidden="true" />
+                        <p className="m-0">
                             {message.isRevoked
                                 ? 'This message was deleted'
                                 : 'This message cannot be decrypted on this device.'}
@@ -70,18 +74,24 @@ export default function MessageBubble({
 
     const meta = <MessageMeta message={message} isOwn={isOwn} />;
 
+    const bubbleTheme = isOwn
+        ? 'bg-[linear-gradient(160deg,var(--bubble-out-a),var(--bubble-out-b))] text-[var(--bubble-out-ink)]'
+        : 'bg-[var(--bubble-in)] text-[var(--bubble-in-ink)]';
+
     return (
         <div className={rowClass}>
             {lead}
 
-            <div className="ec-stack">
+            <div className={stackClass}>
                 {showSenderName && !isOwn && !joinedPrev && senderName && (
-                    <p className="ec-sender">{senderName}</p>
+                    <p className="m-0 mb-[3px] ml-1 font-semibold text-[12.5px] leading-[1.2] [font-family:var(--font-display)] text-[var(--accent-text)]">
+                        {senderName}
+                    </p>
                 )}
 
-                <div className={bubbleClass}>
+                <div className={`${bubbleBase} ${bubbleTheme} shadow-[var(--shadow-bubble)]`}>
                     {attachments.length > 0 && (
-                        <div className="ec-bubble__attachments">
+                        <div className="flex flex-col gap-[6px] mb-1">
                             {attachments.map((attachment) => {
                                 const Renderer = rendererFor(attachment.category);
                                 return (
@@ -111,8 +121,10 @@ function MessageMeta({ message, isOwn }) {
         ? sentAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         : '';
 
+    const colorClass = isOwn ? 'text-[var(--bubble-out-meta)]' : 'text-[var(--bubble-in-meta)]';
+
     return (
-        <span className="ec-meta">
+        <span className={`float-right inline-flex items-center gap-1 mt-2 mb-[-3px] ml-3 font-medium text-[11px] leading-none [font-family:var(--font-body)] tabular-nums select-none ${colorClass}`}>
             {valid && <time dateTime={sentAt.toISOString()}>{time}</time>}
             {isOwn && <StateIcon state={message.state} />}
         </span>
@@ -120,8 +132,9 @@ function MessageMeta({ message, isOwn }) {
 }
 
 function StateIcon({ state }) {
-    if (state === 'sending') return <Clock aria-label="Sending" />;
-    if (state === 'failed') return <AlertCircle className="is-failed" aria-label="Not sent" />;
-    if (state === 'read') return <CheckCheck className="is-read" aria-label="Read" />;
-    return <Check aria-label="Sent" />;
+    const baseClass = "w-[14px] h-[14px]";
+    if (state === 'sending') return <Clock className={baseClass} aria-label="Sending" />;
+    if (state === 'failed') return <AlertCircle className={`${baseClass} text-[#ffd6d2]`} aria-label="Not sent" />;
+    if (state === 'read') return <CheckCheck className={`${baseClass} text-[var(--tick-read)]`} aria-label="Read" />;
+    return <Check className={baseClass} aria-label="Sent" />;
 }
