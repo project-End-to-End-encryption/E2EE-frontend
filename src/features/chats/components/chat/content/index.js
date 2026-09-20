@@ -2,6 +2,7 @@ import TextMessage from './TextMessage.jsx';
 import ImageMessage from './ImageMessage.jsx';
 import VideoMessage from './VideoMessage.jsx';
 import FileMessage from './FileMessage.jsx';
+import VoiceNoteContent from '../../audio/VoiceNoteContent.jsx';
 
 /**
  * Attachment renderers, keyed by category.
@@ -13,10 +14,10 @@ import FileMessage from './FileMessage.jsx';
 export const ATTACHMENT_RENDERERS = {
     image: ImageMessage,
     video: VideoMessage,
-    audio: FileMessage,     // until the voice-note component exists
+    audio: VoiceNoteContent,
     file: FileMessage
 };
 
 export const rendererFor = (category) => ATTACHMENT_RENDERERS[category] ?? FileMessage;
 
-export { TextMessage, ImageMessage, VideoMessage, FileMessage };
+export { TextMessage, ImageMessage, VideoMessage, FileMessage, VoiceNoteContent };

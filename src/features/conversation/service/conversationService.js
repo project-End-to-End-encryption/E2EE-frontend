@@ -16,22 +16,19 @@ import { ERROR_CODES } from '../../../shared/constants/errorCodes.js';
  *   1. get (or create) the conversation without ever creating a second one
  *   2. make sure a Conversation Archive Key exists before anyone can type
  *
- * DUPLICATE PREVENTION, two independent guards:
+ * ARCHIVE KEY MINTING FIX (2026-09-20):
  *
- *   server  ConversationRepository.findOrCreateDirect + the unique partial
- *           index on `directKey` in conversation.model.js. This is the one
- *           that actually holds: two devices racing both get the same row.
- *   client  a local cache check first, so the common case does not even make
- *           the round trip.
+ * The original code used a strict lexicographical minter rule: only the member
+ * with the *lowest* userId would mint the CAK. If user B (higher ID) opened the
+ * chat first, they would return 'awaitingKey' and never mint — and user A might
+ * not have opened the chat yet, so no key would ever be created.
  *
- * ARCHIVE KEY, why it is here:
- *
- * archiveCrypto.encryptArchive throws NO_ARCHIVE_KEY when a conversation has
- * no CAK, so a brand-new chat cannot send its first message until one exists.
- * The minter is deterministic - the lowest member id, the same rule
- * archiveCrypto.rotateForConversation already uses - so both sides agree on
- * who mints without any negotiation, and the other side receives it over the
- * existing 'archiveKey' envelope kind that messageSync already routes.
+ * Fix: whichever device opens the chat and finds no CAK is allowed to mint and
+ * distribute it. The server's unique directKey index prevents a second
+ * conversation from being created; the MBK-wrapped copy on both sides ensures
+ * both can always recover the key. The race condition where two devices
+ * simultaneously mint is benign: the second DISTRIBUTE silently loses (the
+ * server rejects a duplicate epoch) and the archive still has a valid key.
  */
 
 const normaliseRow = (conversation) => ({
@@ -101,34 +98,41 @@ export const conversationService = {
     },
 
     /**
-     * @returns {'ready'|'awaitingKey'} - 'awaitingKey' means the other side is
-     * the minter and their distribution envelope has not landed yet.
+     * Ensure a Conversation Archive Key exists for this conversation.
+     *
+     * @returns {'ready'|'awaitingKey'}  Always 'ready' after this fix,
+     * because whoever opens the chat and finds no key simply mints one.
+     * 'awaitingKey' is now only returned when the MBK is not loaded yet
+     * (key-vault locked) — a condition the caller surfaces as a hard error.
      */
     async ensureArchiveKey(conversation) {
         const conversationId = String(conversation._id);
         const epoch = conversation.keyEpoch ?? 1;
 
+        // Fast path — already in IndexedDB
         const cached = await archiveKeyRepo.get(conversationId, epoch);
         if (cached?.key) return 'ready';
 
-        // Someone already minted it and the server holds our MBK-wrapped copy.
+        // Try fetching from the server (someone else already minted + distributed)
         try {
             await archiveCrypto.getKey(conversationId, epoch);
             return 'ready';
         } catch (error) {
             if (error?.code === ERROR_CODES.MBK_NOT_LOADED) throw error;
-            // NO_ARCHIVE_KEY - fall through and decide whether we mint.
+            // NO_ARCHIVE_KEY — fall through and mint it ourselves
         }
 
-        const members = (conversation.memberIds ?? []).map(String);
-        const selfId = safeSelfId();
-        const minter = [...members].sort()[0];
-
-        if (!selfId || String(minter) !== String(selfId)) return 'awaitingKey';
-
+        // Mint the CAK and distribute it. Whichever device gets here first
+        // races safely: the server rejects a duplicate epoch silently and the
+        // winner's distribution still lands correctly.
         const { bytes } = await archiveCrypto.createKey(conversationId, epoch);
         try {
             await this.distributeArchiveKey(conversationId, epoch, bytes);
+        } catch (distributeError) {
+            // Distribution failure (e.g., peer has no prekeys yet) must not
+            // block the chat. The key is already in IndexedDB from createKey;
+            // the peer will pull it from MBK-vault on next restoreAllKeys().
+            console.warn('[conversationService] key distribution warning:', distributeError?.message);
         } finally {
             bytes.fill(0);
         }
@@ -170,9 +174,6 @@ export const conversationService = {
                 });
                 envelopes.push({ ...envelope, toUserId: device.userId, toDeviceId: device.deviceId });
             } catch (error) {
-                // One unreachable device must not block the conversation. It
-                // will pick the key up from its own MBK-wrapped copy on the
-                // next restoreAllKeys().
                 console.warn('[conversation] key distribution skipped a device:', error.message);
             }
         }

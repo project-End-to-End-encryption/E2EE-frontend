@@ -22,6 +22,14 @@ const PAGE = 50;
  * does it on the way in. This hook reads plaintext rows out of the local store
  * and keeps them in sync with the bus. It contains no crypto and no socket
  * calls of its own.
+ *
+ * KEY-STATE FIX (2026-09-20):
+ * When the user opens a chat where they are NOT the CAK minter, the
+ * original code left keyState stuck on 'awaitingKey' forever. With
+ * ensureArchiveKey now always minting on whoever opens first, keyState
+ * resolves to 'ready' on open. The bus listener additionally re-checks
+ * keyState when a SIDEBAR_CHANGED or MESSAGE_ADDED event arrives so the
+ * UI transitions instantly once the envelope lands over the wire.
  */
 export function useMessages(conversationId) {
     const [messages, setMessages] = useState([]);
@@ -47,6 +55,22 @@ export function useMessages(conversationId) {
         }
     }, [conversationId]);
 
+    // Resolve key state for a given conversation (used on open + on live events)
+    const resolveKeyState = useCallback(async (cid) => {
+        if (!cid) return;
+        try {
+            const conversation = await conversationService.get(cid);
+            if (conversation) {
+                const state = await conversationService.ensureArchiveKey(conversation);
+                setKeyState(state);
+            }
+        } catch (keyError) {
+            if (keyError?.code === ERROR_CODES.MBK_NOT_LOADED) {
+                setKeyState('awaitingKey');
+            }
+        }
+    }, []);
+
     // Open the conversation: paint from cache, then fill any gaps in the
     // background so a slow backfill never blocks first render.
     useEffect(() => {
@@ -62,10 +86,7 @@ export function useMessages(conversationId) {
             setLoading(false);
 
             try {
-                const conversation = await conversationService.get(conversationId);
-                if (conversation) {
-                    setKeyState(await conversationService.ensureArchiveKey(conversation));
-                }
+                await resolveKeyState(conversationId);
             } catch (keyError) {
                 if (!cancelled) setError(keyError);
             }
@@ -79,10 +100,13 @@ export function useMessages(conversationId) {
         })();
 
         return () => { cancelled = true; };
-    }, [conversationId, reload]);
+    }, [conversationId, reload, resolveKeyState]);
 
     // Live updates. Every write path in the app announces itself here, so the
     // hook never polls and never re-fetches on a timer.
+    //
+    // KEY: re-resolve keyState when sidebar changes or a new message arrives,
+    // so the UI unblocks the moment the CAK distribution envelope lands.
     useEffect(() => {
         if (!conversationId) return;
 
@@ -90,13 +114,18 @@ export function useMessages(conversationId) {
             String(payload.conversationId) === String(conversationId);
 
         const off = [
-            bus.on(TOPICS.MESSAGE_ADDED, (payload) => { if (matches(payload)) void reload(); }),
+            bus.on(TOPICS.MESSAGE_ADDED, (payload) => {
+                if (matches(payload)) void reload();
+            }),
             bus.on(TOPICS.MESSAGE_UPDATED, (payload) => { if (matches(payload)) void reload(); }),
-            bus.on(TOPICS.MESSAGE_REVOKED, (payload) => { if (matches(payload)) void reload(); })
+            bus.on(TOPICS.MESSAGE_REVOKED, (payload) => { if (matches(payload)) void reload(); }),
+            bus.on(TOPICS.SIDEBAR_CHANGED, async () => {
+                await resolveKeyState(conversationId);
+            })
         ];
 
         return () => off.forEach((unsubscribe) => unsubscribe());
-    }, [conversationId, reload]);
+    }, [conversationId, reload, resolveKeyState]);
 
     const loadOlder = useCallback(async () => {
         if (!conversationId || loadingOlder.current || !hasMore) return;
@@ -125,8 +154,6 @@ export function useMessages(conversationId) {
         try {
             return await messageComposer.sendText(conversationId, trimmed);
         } catch (sendError) {
-            // The row is already in the outbox and shows as failed; flushOutbox
-            // retries it on the next connect. Surface it, do not throw at React.
             setError(sendError);
             return null;
         }

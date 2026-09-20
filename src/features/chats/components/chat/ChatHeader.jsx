@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronLeft, ShieldCheck } from 'lucide-react';
+import { ChevronLeft, Phone, Video, ShieldCheck } from 'lucide-react';
 import Avatar from '../../../../components/common/Avatar.jsx';
 
 /**
