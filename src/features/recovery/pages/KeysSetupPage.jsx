@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
     KeyRound,
     Download,
@@ -28,23 +28,7 @@ import { claimDevice } from "../deviceState.js";
  *
  * The step after profile setup: hand the new user their recovery key file.
  *
- *      checking -> ready -> working -> saved -> (tick the box) -> /chat
- *                     \-> blocked       can't build a key in this session
- *                     \-> exists        a vault was already created earlier
- *                     \-> unreachable   the recovery service didn't answer
- *
- * Same AuthPageShell as login / profile setup. Nothing here touches crypto:
- *
- *      this page -> vaultService.enroll -> recoveryKey / mbkStore -> server vault
- *
- * The vault is created when the user presses the button, not when the page
- * opens, so refreshing before that changes nothing. The key itself lives in
- * component state only until the user leaves the page; it is what makes
- * "Download again" possible, and it is dropped on Continue.
- *
- * Text colours here are chosen for contrast (all >= 4.5:1 on white). The
- * shared COLORS.obsidian / midGray / ash are too pale for body text, so this
- * page uses COLORS.otherText plus the two greys below instead.
+ * Text colours here are chosen for contrast (all >= 4.5:1 on white).
  */
 
 const INK = COLORS.otherText;          // #191687  13.9:1 on white
@@ -202,10 +186,13 @@ function Notice({ tone = 'info', children }) {
 
 export default function KeysSetupPage() {
     const navigate = useNavigate();
+    const location = useLocation();
+
+    const afterVaultReset = location.state?.afterVaultReset === true;
 
     const [phase, setPhase] = useState('checking');
     const [username, setUsername] = useState(null);
-    const [file, setFile] = useState(null);           // { filename, keyBase64 }, memory only
+    const [file, setFile] = useState(null); // { filename, keyBase64 }, memory only
     const [error, setError] = useState(null);
     const [confirmed, setConfirmed] = useState(false);
     const [attempt, setAttempt] = useState(0);
@@ -228,7 +215,6 @@ export default function KeysSetupPage() {
                 setPhase(exists ? 'exists' : identityHandoff.has() ? 'ready' : 'blocked');
             } catch (checkError) {
                 if (cancelled) return;
-
                 setPhase('unreachable');
             }
         })();
@@ -285,16 +271,25 @@ export default function KeysSetupPage() {
     };
 
     const handleContinue = () => {
-        setFile(null);                                // drop the key from memory
-        navigate('/chat', { replace: true });
+        setFile(null);
+
+        navigate('/chat', {
+            replace: true
+        });
     };
 
     const filename = file?.filename ?? recoveryKey.suggestedFilename(username);
 
     return (
         <AuthPageShell
-            tagline="One file. Your whole history."
-            subtext="Your recovery key is made in this browser. We never see it, and we cannot recover it for you."
+            tagline={afterVaultReset
+                ? "Your new encryption is ready."
+                : "One file. Your whole history."
+            }
+            subtext={afterVaultReset
+                ? "Your previous encrypted history was permanently deleted. Save this new recovery key before logging in again."
+                : "Your recovery key is made in this browser. We never see it, and we cannot recover it for you."
+            }
         >
             <style>{GLOBAL_CSS}</style>
 
@@ -348,7 +343,12 @@ export default function KeysSetupPage() {
 
             {(phase === 'ready' || phase === 'working' || phase === 'saved') && (
                 <>
-                    <h1 style={headingStyle} className="font-medium">Save your recovery key</h1>
+                    <h1 style={headingStyle} className="font-medium">
+                        {afterVaultReset
+                            ? "Save your new recovery key"
+                            : "Save your recovery key"
+                        }
+                    </h1>
                     <p style={leadStyle} className="mt-2">
                         Your messages are locked with keys only you hold. This file unlocks your
                         history on a new device.

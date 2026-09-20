@@ -58,58 +58,85 @@ export const vaultService = {
      *        downloads it later using the returned keyBase64.
      */
     async enroll({ username, identityPrivateKeyPkcs8, autoDownload = true }) {
-        // Step 1: mint the key in memory only. `create` does NOT download.
-        const { keyBytes, keyBase64, filename } = await recoveryKey.create({ username });
+        const { keyBytes, keyBase64, filename } =
+            await recoveryKey.create({ username });
 
         let vaultKey = null;
-        // The MBK: 32 random bytes that live in JS only for this function.
-        const mbkBytes = crypto.getRandomValues(new Uint8Array(32));
+        const mbkBytes = crypto.getRandomValues(
+            new Uint8Array(32)
+        );
 
         try {
-            // Step 2: derive the vault key + verifier, then encrypt the secrets.
             const saltBase64 = recoveryKey.newSalt();
-            const derived = await recoveryKey.deriveVaultKeys(keyBytes, {
-                saltBase64,
-                iterations: KDF_ITERATIONS
-            });
+
+            const derived = await recoveryKey.deriveVaultKeys(
+                keyBytes,
+                {
+                    saltBase64,
+                    iterations: KDF_ITERATIONS
+                }
+            );
+
             vaultKey = derived.vaultKey;
 
-            const encryptedMasterBackupKey = await sealUnder(vaultKey, mbkBytes);
-            const encryptedIdentityKey = await sealUnder(vaultKey, identityPrivateKeyPkcs8);
+            const encryptedMasterBackupKey =
+                await sealUnder(vaultKey, mbkBytes);
 
-            // Step 3: send to the server. If this throws we exit here, no file
-            // has been given to the user, and the caller can simply retry
-            // (a retry mints a brand-new key).
-            const result = unwrap(await request('/api/v1/recovery/vault', {
-                version: 1,
-                kdf: { algorithm: 'PBKDF2', hash: 'SHA-256', iterations: KDF_ITERATIONS, salt: saltBase64 },
-                verifier: derived.verifier,
-                encryptedIdentityKey,
-                encryptedMasterBackupKey
-            }, { method: 'POST' }));
+            const encryptedIdentityKey =
+                await sealUnder(
+                    vaultKey,
+                    identityPrivateKeyPkcs8
+                );
 
-            // Step 4: the server has the vault, so the key is now valid.
-            // Deliver it BEFORE any local bookkeeping, so nothing below can
-            // stop the user from getting their file.
+            const result = unwrap(
+                await request(
+                    '/api/v1/recovery/vault',
+                    {
+                        version: 1,
+                        kdf: {
+                            algorithm: 'PBKDF2',
+                            hash: 'SHA-256',
+                            iterations: KDF_ITERATIONS,
+                            salt: saltBase64
+                        },
+                        verifier: derived.verifier,
+                        encryptedIdentityKey,
+                        encryptedMasterBackupKey
+                    },
+                    {
+                        method: 'POST'
+                    }
+                )
+            );
+
             if (autoDownload) {
-                recoveryKey.downloadExisting({ keyBase64, username, filename });
+                recoveryKey.downloadExisting({
+                    keyBase64,
+                    username,
+                    filename
+                });
             }
 
-            // Local caching is best-effort from here on. The server state is
-            // already committed; if we threw, the caller might retry enroll()
-            // and hit "vault already exists". Worst case the user uploads the
-            // key file once on next launch.
             try {
-                await mbkStore.set(mbkBytes);   // imports as non-extractable + persists
-                await metaRepo.set('vault.generation', result.generation ?? 1);
+                await mbkStore.set(mbkBytes);
+
+                await metaRepo.set(
+                    'vault.generation',
+                    result.generation ?? 1
+                );
             } catch (error) {
-                console.warn('[vaultService] enrolled, but local cache failed:', error.message);
+                console.warn(
+                    '[vaultService] enrolled, but local cache failed:',
+                    error.message
+                );
             }
 
-            return { filename, keyBase64, generation: result.generation };
-
+            return {
+                filename,
+                keyBase64,
+                generation: result.generation
+            };
         } finally {
-            // Always wipe raw key material, success or failure.
             mbkBytes.fill(0);
             keyBytes.fill(0);
             vaultKey?.fill(0);

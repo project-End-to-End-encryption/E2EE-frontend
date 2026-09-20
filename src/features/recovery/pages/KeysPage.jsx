@@ -52,6 +52,8 @@ export default function KeysPage() {
     const [rotateBusy, setRotateBusy] = useState(false);
     const [rotateFilename, setRotateFilename] = useState(null);
     const [rotateError, setRotateError] = useState(null);
+    const [resetBusy, setResetBusy] = useState(false);
+    const [resetError, setResetError] = useState(null);
 
     const refreshStatus = useCallback(async () => {
         setLoading(true);
@@ -132,6 +134,51 @@ export default function KeysPage() {
         }
     };
 
+    const handleResetVault = async () => {
+        if (resetBusy) return;
+
+        setResetBusy(true);
+        setResetError(null);
+
+        try {
+            /*
+             * DELETE /api/v1/recovery/vault
+             *
+             * The backend requires:
+             * { confirm: 'DELETE_MY_HISTORY' }
+             */
+            await request(
+                '/api/v1/recovery/vault',
+                {
+                    confirm: 'DELETE_MY_HISTORY'
+                },
+                {
+                    method: 'DELETE'
+                }
+            );
+
+            /*
+             * The old vault is now gone.
+             *
+             * The next page is responsible for creating the new MBK
+             * and generating the replacement recovery-key file.
+             */
+            navigate('/signup/keys', {
+                replace: true,
+                state: {
+                    afterVaultReset: true
+                }
+            });
+        } catch (error) {
+            setResetError(
+                error?.message ||
+                'Could not reset your encryption vault.'
+            );
+        } finally {
+            setResetBusy(false);
+        }
+    };
+
     return (
         <AuthPageShell
             tagline="Your keys, your history"
@@ -188,14 +235,72 @@ export default function KeysPage() {
                 error={uploadError}
             />
 
-            <p
-                style={{ color: COLORS.ash, fontFamily: CAPTION_FONT, fontSize: 12, lineHeight: 1.6 }}
-                className="mt-10"
+            <div
+                className="mt-10 rounded-lg p-4"
+                style={{
+                    border: `1px solid ${COLORS.hairline}`,
+                    background: '#fff8f7'
+                }}
             >
-                Lost the file entirely? Recovery from scratch is destructive - it permanently
-                discards every message you can currently read. That option lives in account
-                settings, behind its own confirmation, and is deliberately not on this page.
-            </p>
+                <h2
+                    style={{
+                        color: COLORS.obsidian,
+                        fontFamily: DISPLAY_FONT,
+                        fontSize: 14
+                    }}
+                    className="font-medium"
+                >
+                    Can't find your recovery key?
+                </h2>
+
+                <p
+                    className="mt-2"
+                    style={{
+                        color: COLORS.midGray,
+                        fontFamily: CAPTION_FONT,
+                        fontSize: 12,
+                        lineHeight: 1.6
+                    }}
+                >
+                    Resetting your vault permanently deletes the encrypted history
+                    protected by your current recovery key. A new encryption vault
+                    and recovery key will be created afterward.
+                </p>
+
+                {resetError && (
+                    <div
+                        role="alert"
+                        className="mt-3 rounded p-3 text-sm"
+                        style={{
+                            background: '#fdecea',
+                            color: '#b42318',
+                            border: '1px solid #f5c6c1',
+                            fontFamily: CAPTION_FONT,
+                            lineHeight: 1.5
+                        }}
+                    >
+                        {resetError}
+                    </div>
+                )}
+
+                <button
+                    type="button"
+                    onClick={handleResetVault}
+                    disabled={resetBusy}
+                    className="mt-4 w-full rounded px-5 py-3 text-sm font-medium"
+                    style={{
+                        background: '#b42318',
+                        color: '#fff',
+                        opacity: resetBusy ? 0.6 : 1,
+                        cursor: resetBusy ? 'default' : 'pointer',
+                        fontFamily: DISPLAY_FONT
+                    }}
+                >
+                    {resetBusy
+                        ? 'Resetting encryption...'
+                        : "I can't find my recovery key"}
+                </button>
+            </div>
         </AuthPageShell>
     );
 }
