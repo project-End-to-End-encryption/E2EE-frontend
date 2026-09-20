@@ -3,7 +3,7 @@ import {SOCKET_EVENTS} from "../../shared/constants/socketEvents.js";
 import {conversationRepo, messageRepo} from "../../infrastructure/storage/repos.js";
 import {bus, TOPICS} from "../../infrastructure/websocket/eventBus.js";
 import {SessionManager} from "../conversation/service/session/SessionManager.js";
-import {archiveCrypto} from "../conversation/service/archiveCrypto .js";
+import {archiveCrypto} from "../conversation/service/archiveCrypto.js";
 
 /**
  * MESSAGE SYNC
