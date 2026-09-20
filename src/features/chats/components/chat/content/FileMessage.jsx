@@ -32,22 +32,22 @@ export default function FileMessage({ conversationId, attachment }) {
             type="button"
             onClick={download}
             disabled={loading}
-            className="flex items-center gap-3 min-w-[220px] max-w-[280px] px-3 py-2.5 rounded-lg bg-black/10 text-left"
+            className="ec-att-file"
         >
-            <span className="w-9 h-9 shrink-0 rounded-lg bg-black/10 flex items-center justify-center">
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Icon className="w-4 h-4" />}
+            <span className="ec-att-file__icon">
+                {loading ? <Loader2 className="ec-spin" /> : <Icon />}
             </span>
 
-            <span className="flex-1 min-w-0">
-                <span className="block text-xs font-semibold truncate">
+            <span className="ec-att-file__text">
+                <span className="ec-att-file__name">
                     {attachment.originalFileName || 'Attachment'}
                 </span>
-                <span className="block text-[11px] opacity-70">
+                <span className="ec-att-file__sub">
                     {error ? errorMessage : loading ? `${progress || 0}%` : humanSize(attachment.size)}
                 </span>
             </span>
 
-            {!loading && <Download className="w-3.5 h-3.5 shrink-0 opacity-70" />}
+            {!loading && <Download aria-hidden="true" />}
         </button>
     );
 }

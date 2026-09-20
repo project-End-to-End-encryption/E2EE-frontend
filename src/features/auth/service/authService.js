@@ -7,7 +7,7 @@ export const register = async ({email, password, reservationId }) => {
     const result = await signupUser({email,password,reservationId});
     const socket = await webSocketClient.connect();
     authStore.setUserId(result.userId)
-    await generateAndRegisterKeys(socket);
+    await generateAndRegisterKeys(socket, { retainForVault: true });
     return result;
 };
 
@@ -15,7 +15,6 @@ export const login = async ({email, password}) => {
     const result = await loginUser({email,password});
     const socket = await webSocketClient.connect();
     authStore.setUserId(result.userId)
-    await generateAndRegisterKeys(socket);
     return result;
 }
 

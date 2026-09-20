@@ -4,79 +4,70 @@ import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../../../../providers/useTheme.js';
 
 /**
- * The settings popover, lifted out of ChatPage with both of its views intact.
- * One addition: a route into the encryption-keys page. That is a real
- * destination, not a placeholder control.
+ * The settings popover, with both of its views intact: the main list and the
+ * theme picker. Includes the route into the encryption-keys page, which is a
+ * real destination, not a placeholder control.
  */
 export default function SettingsMenu({ view, onViewChange, onClose }) {
     const { isDark, setTheme } = useTheme();
     const navigate = useNavigate();
 
+    if (view === 'theme') {
+        return (
+            <div className="ec-menu" role="menu">
+                <div className="ec-menu__row">
+                    <button
+                        type="button"
+                        className="ec-menu__back"
+                        aria-label="Back to settings"
+                        onClick={() => onViewChange('main')}
+                    >
+                        <ArrowLeft size={16} />
+                    </button>
+                    <p className="ec-menu__title" style={{ margin: 0 }}>Theme</p>
+                </div>
+
+                <button
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={!isDark}
+                    className={`ec-menu__item ${!isDark ? 'is-selected' : ''}`}
+                    onClick={() => { setTheme('light'); onClose?.(); }}
+                >
+                    <span><Sun />Light</span>
+                </button>
+
+                <button
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={isDark}
+                    className={`ec-menu__item ${isDark ? 'is-selected' : ''}`}
+                    onClick={() => { setTheme('dark'); onClose?.(); }}
+                >
+                    <span><Moon />Dark</span>
+                </button>
+            </div>
+        );
+    }
+
     return (
-        <div className={`absolute left-12 bottom-0 w-48 rounded-xl shadow-2xl p-2 z-50 border ${
-            isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-800'
-        }`}>
-            {view === 'main' ? (
-                <div>
-                    <p className="text-[10px] font-bold px-2 py-1 text-slate-400 uppercase tracking-wider">Settings</p>
+        <div className="ec-menu" role="menu">
+            <p className="ec-menu__title">Settings</p>
 
-                    <button
-                        onClick={() => onViewChange('theme')}
-                        className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-semibold transition-colors ${
-                            isDark ? 'hover:bg-slate-700 text-slate-200' : 'hover:bg-slate-100 text-slate-700'
-                        }`}
-                    >
-                        <div className="flex items-center gap-2">
-                            {isDark ? <Moon className="w-3.5 h-3.5 text-cyan-400" /> : <Sun className="w-3.5 h-3.5 text-amber-500" />}
-                            <span>Theme</span>
-                        </div>
-                        <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-                    </button>
+            <button type="button" role="menuitem" className="ec-menu__item" onClick={() => onViewChange('theme')}>
+                <span>{isDark ? <Moon /> : <Sun />}Theme</span>
+                <ChevronRight className="ec-menu__chev" />
+            </button>
 
-                    <button
-                        onClick={() => { onClose?.(); navigate('/keys'); }}
-                        className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-semibold transition-colors ${
-                            isDark ? 'hover:bg-slate-700 text-slate-200' : 'hover:bg-slate-100 text-slate-700'
-                        }`}
-                    >
-                        <div className="flex items-center gap-2">
-                            <KeyRound className="w-3.5 h-3.5 text-cyan-400" />
-                            <span>Encryption keys</span>
-                        </div>
-                        <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-                    </button>
-                </div>
-            ) : (
-                <div>
-                    <div className="flex items-center gap-1 px-1 pb-1 mb-1 border-b border-slate-700/50">
-                        <button
-                            onClick={() => onViewChange('main')}
-                            className={`p-1 rounded-md hover:bg-slate-700/50 transition-colors ${isDark ? 'text-slate-300' : 'text-slate-600'}`}
-                        >
-                            <ArrowLeft className="w-3.5 h-3.5" />
-                        </button>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Theme</p>
-                    </div>
-
-                    <button
-                        onClick={() => { setTheme('light'); onClose?.(); }}
-                        className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-semibold ${
-                            !isDark ? 'bg-[#b2d1f8]/40 text-[#0a1968]' : 'hover:bg-slate-700 text-slate-300'
-                        }`}
-                    >
-                        <Sun className="w-3.5 h-3.5 text-amber-500" /> Light
-                    </button>
-
-                    <button
-                        onClick={() => { setTheme('dark'); onClose?.(); }}
-                        className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-semibold ${
-                            isDark ? 'bg-slate-700 text-cyan-400' : 'hover:bg-slate-100 text-slate-700'
-                        }`}
-                    >
-                        <Moon className="w-3.5 h-3.5 text-cyan-400" /> Dark
-                    </button>
-                </div>
-            )}
+            <button
+                type="button"
+                role="menuitem"
+                className="ec-menu__item"
+                onClick={() => { onClose?.(); navigate('/keys'); }}
+            >
+                <span><KeyRound />Encryption keys</span>
+                <ChevronRight className="ec-menu__chev" />
+            </button>
         </div>
     );
 }

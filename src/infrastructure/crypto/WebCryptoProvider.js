@@ -4,12 +4,32 @@ import {bufferToBase64, base64ToBuffer} from '../../shared/utils/encoding.js'
 class WebCryptoProvider extends ICryptoProvider{
 
     // Identity key
-    async generateIdentityKeyPair() {
+    // `extractable` is false everywhere except the one moment at sign-up when
+    // the private key has to be exported once for the recovery vault - see
+    // exportAndLockIdentityKeyPair and features/recovery/identityHandoff.js.
+    async generateIdentityKeyPair({ extractable = false } = {}) {
         return crypto.subtle.generateKey(
+            {name: 'Ed25519'},
+            extractable,
+            ['sign']
+        );
+    }
+
+    /**
+     * Export an extractable identity private key once (PKCS8), then re-import
+     * it as non-extractable. The returned keyPair is what gets stored; the
+     * bytes go to the recovery vault and are zeroed by their owner.
+     */
+    async exportAndLockIdentityKeyPair(keyPair) {
+        const pkcs8 = new Uint8Array(await crypto.subtle.exportKey('pkcs8', keyPair.privateKey));
+        const privateKey = await crypto.subtle.importKey(
+            'pkcs8',
+            pkcs8,
             {name: 'Ed25519'},
             false,
             ['sign']
         );
+        return { pkcs8, keyPair: { publicKey: keyPair.publicKey, privateKey } };
     }
 
     async generateX25519KeyPair(){

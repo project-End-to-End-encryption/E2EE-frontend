@@ -12,8 +12,8 @@ export default function ImageMessage({ conversationId, attachment }) {
 
     if (error) {
         return (
-            <div className="flex items-center gap-2 text-xs text-red-400 py-6 px-3">
-                <ImageOff className="w-4 h-4 shrink-0" />
+            <div className="ec-att-error" role="alert">
+                <ImageOff width={18} height={18} style={{ flex: '0 0 auto' }} />
                 <span>{errorMessage}</span>
             </div>
         );
@@ -21,8 +21,8 @@ export default function ImageMessage({ conversationId, attachment }) {
 
     if (!url) {
         return (
-            <div className="flex items-center justify-center w-48 h-32 rounded-lg bg-black/10">
-                {loading ? <Loader2 className="w-4 h-4 animate-spin opacity-60" /> : null}
+            <div className="ec-att-placeholder" role="status" aria-label="Decrypting image">
+                {loading ? <Loader2 className="ec-spin" width={18} height={18} /> : null}
             </div>
         );
     }
@@ -31,7 +31,7 @@ export default function ImageMessage({ conversationId, attachment }) {
         <img
             src={url}
             alt={attachment.originalFileName || 'Image'}
-            className="rounded-lg max-w-[260px] max-h-[320px] object-cover"
+            className="ec-att-image"
             loading="lazy"
         />
     );

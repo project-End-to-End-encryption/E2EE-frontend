@@ -13,7 +13,9 @@ import {
     GithubMark,
     inputStyle,
 } from "../components/sidepanel";
-import {login} from "../service/authService.js";
+import { login } from "../service/authService.js";
+import { authStore } from "../storage/authStore.js";
+import { getDeviceState } from "../../recovery/deviceState.js";
 
 export default function E2EELogin({
                                       onLogin,
@@ -41,17 +43,39 @@ export default function E2EELogin({
         setLoading(true);
 
         try {
-            // If a custom onLogin handler is passed, call it first
+            // Keep custom login behavior unchanged.
             if (onLogin) {
                 await onLogin(email, password);
                 return;
-            } else {
-                await login({email, password});
             }
-            navigate("/chat");
+
+            const result = await login({ email, password });
+
+            const userId = result?.userId || authStore.getUserId();
+
+            if (!userId) {
+                throw new Error("Login succeeded but no user identity was returned.");
+            }
+
+            // Determine whether this browser already has this account's
+            // identity + MBK.
+            const deviceState = await getDeviceState(userId);
+
+            if (deviceState === "ok") {
+                // Existing device: everything needed is already local.
+                navigate("/chat", { replace: true });
+            } else {
+                // New device / cleared storage / foreign local keys:
+                // require the recovery-key upload.
+                navigate("/restore", { replace: true });
+            }
+
         } catch (err) {
             console.error("Login request error:", err);
-            setErrorMsg(err.message || "Unable to connect to the server. Please try again later.");
+            setErrorMsg(
+                err.message ||
+                "Unable to connect to the server. Please try again later."
+            );
         } finally {
             setLoading(false);
         }

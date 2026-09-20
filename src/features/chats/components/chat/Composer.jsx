@@ -1,6 +1,5 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Paperclip, Send, X, Loader2, Image as ImageIcon, Film, FileText } from 'lucide-react';
-import { useTheme } from '../../../../providers/useTheme.js';
 import { useMediaUpload } from '../../hooks/useMediaUpload.js';
 import { describeFile } from '../../../media/mediaService.js';
 import { messageFor } from '../../../../shared/constants/errorCodes.js';
@@ -10,33 +9,57 @@ import { messageFor } from '../../../../shared/constants/errorCodes.js';
  *
  *      Composer
  *        |- AttachmentButton
- *        |- TextInput
- *        |- [VoiceMessageButton]  <- v2
+ *        |- TextInput (grows with what you type)
+ *        |- trailing            <- voice-message button drops in here in v2
  *        `- SendButton
  *
- * The voice-message slot is left as a gap in the flex row with a comment, not
- * as a dead microphone icon. Recording needs a recorder, a waveform, a
- * duration and a cancel gesture; a button that does none of that is a lie.
+ * The voice-message slot is the `trailing` prop, an empty region rather than a
+ * dead microphone icon. Recording needs a recorder, a waveform, a duration and
+ * a cancel gesture; a button that does none of that is a lie.
  *
  * The attach menu offers Photo / Video / Document, but those are only accept
  * filters on one file input - the pipeline underneath is type-agnostic, so a
  * spreadsheet or a .tar.gz goes through the identical path.
  */
-export default function Composer({ conversationId, onSendText, disabled = false }) {
-    const { isDark } = useTheme();
-
+export default function Composer({ conversationId, onSendText, disabled = false, trailing = null }) {
     const [text, setText] = useState('');
     const [menuOpen, setMenuOpen] = useState(false);
     const [staged, setStaged] = useState([]);
     const [stageError, setStageError] = useState(null);
 
     const fileInput = useRef(null);
-    const acceptRef = useRef('*/*');
+    const inputRef = useRef(null);
+    const menuRef = useRef(null);
 
-    const { uploads, busy, sendFiles, clear } = useMediaUpload(conversationId);
+    const { uploads, busy, sendFiles } = useMediaUpload(conversationId);
+
+    // Grow with the text up to the CSS max-height, then scroll.
+    useLayoutEffect(() => {
+        const node = inputRef.current;
+        if (!node) return;
+        node.style.height = 'auto';
+        node.style.height = `${node.scrollHeight}px`;
+    }, [text]);
+
+    useEffect(() => {
+        if (!menuOpen) return undefined;
+
+        const onPointerDown = (event) => {
+            if (!menuRef.current?.contains(event.target)) setMenuOpen(false);
+        };
+        const onKeyDown = (event) => {
+            if (event.key === 'Escape') setMenuOpen(false);
+        };
+
+        document.addEventListener('pointerdown', onPointerDown);
+        document.addEventListener('keydown', onKeyDown);
+        return () => {
+            document.removeEventListener('pointerdown', onPointerDown);
+            document.removeEventListener('keydown', onKeyDown);
+        };
+    }, [menuOpen]);
 
     const openPicker = (accept) => {
-        acceptRef.current = accept;
         setMenuOpen(false);
         if (fileInput.current) {
             fileInput.current.accept = accept;
@@ -90,7 +113,7 @@ export default function Composer({ conversationId, onSendText, disabled = false 
     };
 
     const handleKeyDown = (event) => {
-        if (event.key === 'Enter' && !event.shiftKey) {
+        if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
             event.preventDefault();
             void handleSend();
         }
@@ -99,31 +122,26 @@ export default function Composer({ conversationId, onSendText, disabled = false 
     const canSend = !disabled && !busy && (text.trim().length > 0 || staged.length > 0);
 
     return (
-        <div className={`shrink-0 border-t px-3 py-2.5 rounded-b-2xl ${
-            isDark ? 'border-slate-800 bg-[#0f172a]/80' : 'border-[#b2d1f8]/60 bg-white/70'
-        } backdrop-blur-sm`}>
+        <div className="ec-composer">
 
             {(staged.length > 0 || uploads.length > 0) && (
-                <div className="flex flex-wrap gap-2 mb-2">
+                <div className="ec-stage">
                     {staged.map((file, index) => (
-                        <span key={`${file.name}-${index}`} className={`flex items-center gap-2 pl-2.5 pr-1.5 py-1 rounded-lg text-[11px] font-medium ${
-                            isDark ? 'bg-slate-800 text-slate-200' : 'bg-[#b2d1f8]/60 text-[#0a1968]'
-                        }`}>
-                            <span className="max-w-[160px] truncate">{file.name}</span>
-                            <button type="button" onClick={() => removeStaged(index)} aria-label="Remove attachment">
-                                <X className="w-3 h-3" />
+                        <span key={`${file.name}-${index}`} className="ec-pill">
+                            <span className="ec-pill__name">{file.name}</span>
+                            <button type="button" onClick={() => removeStaged(index)} aria-label={`Remove ${file.name}`}>
+                                <X />
                             </button>
                         </span>
                     ))}
 
                     {uploads.map((upload) => (
-                        <span key={upload.id} className={`flex items-center gap-2 px-2.5 py-1 rounded-lg text-[11px] font-medium ${
-                            upload.error ? 'bg-red-500/15 text-red-400'
-                                : isDark ? 'bg-slate-800 text-slate-300' : 'bg-[#b2d1f8]/60 text-[#0a1968]'
-                        }`}>
-                            {!upload.error && upload.phase !== 'done' && <Loader2 className="w-3 h-3 animate-spin" />}
-                            <span className="max-w-[160px] truncate">{upload.name}</span>
-                            <span className="opacity-70">
+                        <span key={upload.id} className={`ec-pill ${upload.error ? 'is-error' : ''}`}>
+                            {!upload.error && upload.phase !== 'done' && (
+                                <Loader2 className="ec-spin" />
+                            )}
+                            <span className="ec-pill__name">{upload.name}</span>
+                            <span className="ec-pill__sub">
                                 {upload.error ? upload.error : `${upload.phase} ${upload.percent}%`}
                             </span>
                         </span>
@@ -132,86 +150,67 @@ export default function Composer({ conversationId, onSendText, disabled = false 
             )}
 
             {stageError && (
-                <p className="text-[11px] font-medium text-red-500 mb-2 px-1">
-                    {messageFor(stageError)}
-                </p>
+                <p className="ec-composer__error" role="alert">{messageFor(stageError)}</p>
             )}
 
-            <div className="flex items-end gap-2">
+            <div className="ec-composer__bar">
 
-                <div className="relative">
+                <div className="ec-composer__attachwrap" ref={menuRef}>
                     <button
                         type="button"
+                        className="ec-iconbtn"
                         aria-label="Attach"
+                        aria-haspopup="menu"
+                        aria-expanded={menuOpen}
                         disabled={disabled}
                         onClick={() => setMenuOpen((open) => !open)}
-                        className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors disabled:opacity-40 ${
-                            isDark ? 'text-slate-300 hover:bg-slate-800' : 'text-[#0a1968] hover:bg-[#b2d1f8]/60'
-                        }`}
                     >
-                        <Paperclip className="w-4 h-4" />
+                        <Paperclip />
                     </button>
 
                     {menuOpen && (
-                        <div className={`absolute bottom-11 left-0 w-40 rounded-xl shadow-2xl p-2 z-50 border ${
-                            isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-800'
-                        }`}>
-                            <AttachOption Icon={ImageIcon} label="Photo" onClick={() => openPicker('image/*')} isDark={isDark} />
-                            <AttachOption Icon={Film} label="Video" onClick={() => openPicker('video/*')} isDark={isDark} />
-                            <AttachOption Icon={FileText} label="Document" onClick={() => openPicker('*/*')} isDark={isDark} />
+                        <div className="ec-attachmenu" role="menu">
+                            <AttachOption Icon={ImageIcon} label="Photo" onClick={() => openPicker('image/*')} />
+                            <AttachOption Icon={Film} label="Video" onClick={() => openPicker('video/*')} />
+                            <AttachOption Icon={FileText} label="Document" onClick={() => openPicker('*/*')} />
                         </div>
                     )}
                 </div>
 
-                <input
-                    ref={fileInput}
-                    type="file"
-                    multiple
-                    hidden
-                    onChange={handleFiles}
-                />
+                <input ref={fileInput} type="file" multiple hidden onChange={handleFiles} />
 
                 <textarea
+                    ref={inputRef}
                     rows={1}
                     value={text}
                     disabled={disabled}
                     onChange={(event) => setText(event.target.value)}
                     onKeyDown={handleKeyDown}
+                    aria-label="Message"
                     placeholder={disabled ? 'Waiting for the conversation key...' : 'Write a message'}
-                    className={`flex-1 resize-none max-h-32 px-3.5 py-2.5 rounded-xl text-sm outline-none transition-colors ${
-                        isDark
-                            ? 'bg-[#1e293b] border border-slate-700 text-white placeholder:text-slate-500 focus:border-[#00a8cc]'
-                            : 'bg-white border border-[#c5ddfa] text-[#0a1968] placeholder:text-slate-500 focus:border-[#00a8cc]'
-                    }`}
+                    className="ec-composer__input"
                 />
 
-                {/* Voice-message button goes here in v2, between input and send. */}
+                {trailing}
 
                 <button
                     type="button"
                     aria-label="Send"
                     onClick={handleSend}
                     disabled={!canSend}
-                    className="w-9 h-9 rounded-xl flex items-center justify-center bg-[#0a1968] text-white shadow-md disabled:opacity-40 transition-opacity"
+                    className="ec-send"
                 >
-                    {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                    {busy ? <Loader2 className="ec-spin" /> : <Send />}
                 </button>
             </div>
         </div>
     );
 }
 
-function AttachOption({ Icon, label, onClick, isDark }) {
+function AttachOption({ Icon, label, onClick }) {
     return (
-        <button
-            type="button"
-            onClick={onClick}
-            className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-semibold transition-colors ${
-                isDark ? 'hover:bg-slate-700 text-slate-200' : 'hover:bg-slate-100 text-slate-700'
-            }`}
-        >
-            <Icon className="w-3.5 h-3.5 text-cyan-400" />
-            {label}
+        <button type="button" role="menuitem" onClick={onClick} className="ec-menu__item">
+            <span><Icon />{label}</span>
         </button>
     );
 }

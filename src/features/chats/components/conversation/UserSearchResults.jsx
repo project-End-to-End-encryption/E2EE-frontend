@@ -1,6 +1,6 @@
 import React from 'react';
 import { Loader2, UserPlus, SearchX, WifiOff } from 'lucide-react';
-import { useTheme } from '../../../../providers/useTheme.js';
+import Avatar from '../../../../components/common/Avatar.jsx';
 
 /**
  * Search results panel.
@@ -11,51 +11,53 @@ import { useTheme } from '../../../../providers/useTheme.js';
  * things and the user can act on each differently.
  */
 export default function UserSearchResults({ status, users, errorMessage, onSelect, busyUserId }) {
-    const { isDark } = useTheme();
-
-    const hint = (Icon, text) => (
-        <div className={`flex items-center gap-2 px-2.5 py-3 text-[11px] font-medium ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-            <Icon className="w-3.5 h-3.5 shrink-0" />
+    const hint = (Icon, text, spin = false) => (
+        <p className="ec-hint" role="status">
+            <Icon className={spin ? 'ec-spin' : undefined} />
             <span>{text}</span>
-        </div>
+        </p>
     );
 
     if (status === 'tooShort') return hint(SearchX, 'Type at least two characters.');
-    if (status === 'loading') return hint(Loader2, 'Searching...');
+    if (status === 'loading') return hint(Loader2, 'Searching...', true);
     if (status === 'empty') return hint(SearchX, 'No one matched that username or email.');
     if (status === 'error') return hint(WifiOff, errorMessage || 'Search is unavailable.');
     if (status !== 'results') return null;
 
     return (
-        <div className="flex flex-col gap-1 -mx-1 px-1 mb-3">
-            <p className="text-[10px] font-bold px-2 py-1 text-slate-400 uppercase tracking-wider">People</p>
+        <div className="ec-people">
+            <p className="ec-section-label">People</p>
 
-            {users.map((user) => (
-                <button
-                    key={user.userId}
-                    type="button"
-                    disabled={busyUserId === user.userId}
-                    onClick={() => onSelect(user)}
-                    className={`w-full flex items-center gap-3 px-2.5 py-2 rounded-xl text-left transition-colors disabled:opacity-60 ${
-                        isDark ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#b2d1f8]/60 text-[#0a1968]'
-                    }`}
-                >
-                    <span className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center ${isDark ? 'bg-slate-800' : 'bg-[#b2d1f8]'}`}>
-                        {busyUserId === user.userId
-                            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            : <UserPlus className="w-3.5 h-3.5" />}
-                    </span>
+            {users.map((user) => {
+                const busy = busyUserId === user.userId;
+                const name = user.fullName || `@${user.username}`;
 
-                    <span className="flex-1 min-w-0">
-                        <span className="block text-xs font-bold truncate">
-                            {user.fullName || `@${user.username}`}
+                return (
+                    <button
+                        key={user.userId}
+                        type="button"
+                        disabled={busy}
+                        onClick={() => onSelect(user)}
+                        className="ec-conv"
+                        style={busy ? { opacity: 0.6 } : undefined}
+                    >
+                        <Avatar name={name} seed={user.userId} size={40} />
+
+                        <span className="ec-conv__body">
+                            <span className="ec-conv__top">
+                                <span className="ec-conv__name">{name}</span>
+                            </span>
+                            <span className="ec-conv__bottom">
+                                <span className="ec-conv__preview">@{user.username}</span>
+                            </span>
                         </span>
-                        <span className={`block text-[11px] truncate ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                            @{user.username}
-                        </span>
-                    </span>
-                </button>
-            ))}
+
+                        {busy
+                            ? <Loader2 className="ec-spin" width={16} height={16} aria-label="Opening chat" />
+                            : <UserPlus width={16} height={16} aria-hidden="true" style={{ color: 'var(--ink-3)' }} />}
+                    </button>
+                );
+            })}
         </div>
     );
 }

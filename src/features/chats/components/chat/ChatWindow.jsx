@@ -1,12 +1,8 @@
 import React from 'react';
-import { useTheme } from '../../../../providers/useTheme.js';
 import { useMessages } from '../../hooks/useMessages.js';
 import ChatHeader from './ChatHeader.jsx';
 import MessageList from './MessageList.jsx';
 import Composer from './Composer.jsx';
-
-import chatBg from '../../../../assets/chat bg.png';
-import chatBgDark from '../../../../assets/chatBgDark.png';
 
 /**
  * ChatWindow
@@ -17,11 +13,11 @@ import chatBgDark from '../../../../assets/chatBgDark.png';
  *        `- Composer
  *
  * One hook call, three children. The window itself holds no message state and
- * makes no socket calls; useMessages owns both, and the same background
- * treatment as the welcome canvas keeps the two views visually continuous.
+ * makes no socket calls; useMessages owns both. The chat wall behind the
+ * thread is the same one the welcome canvas uses, so the two views stay
+ * visually continuous.
  */
-export default function ChatWindow({ conversation, selfUserId }) {
-    const { isDark } = useTheme();
+export default function ChatWindow({ conversation, selfUserId, onBack }) {
     const conversationId = conversation?._id;
 
     const {
@@ -30,22 +26,14 @@ export default function ChatWindow({ conversation, selfUserId }) {
     } = useMessages(conversationId);
 
     return (
-        <main
-            className={`flex-1 relative flex flex-col overflow-hidden bg-cover bg-center bg-no-repeat rounded-2xl shadow-sm transition-colors duration-300 ${
-                isDark ? 'border border-slate-800' : 'border border-[#b2d1f8]/40'
-            }`}
-            style={{ backgroundImage: `url(${isDark ? chatBgDark : chatBg})` }}
-        >
-            <ChatHeader conversation={conversation} keyState={keyState} />
+        <main className="ec-chat">
+            <ChatHeader conversation={conversation} keyState={keyState} onBack={onBack} />
 
-            {errorMessage && (
-                <p className="text-[11px] font-medium text-red-500 px-4 py-1.5 bg-red-500/10">
-                    {errorMessage}
-                </p>
-            )}
+            {errorMessage && <p className="ec-banner" role="alert">{errorMessage}</p>}
 
             <MessageList
                 messages={messages}
+                conversation={conversation}
                 conversationId={conversationId}
                 selfUserId={selfUserId}
                 loading={loading}

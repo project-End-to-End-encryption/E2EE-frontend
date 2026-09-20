@@ -122,6 +122,15 @@ function triggerDownload(contents, filename) {
     }
 }
 
+const buildFilename = (username) =>
+    `e2ee-recovery-${username || 'account'}-${new Date().toISOString().slice(0, 10)}.key`;
+
+async function create({ username } = {}) {
+    const keyBytes = randomBytes(KEY_BYTES);
+    const keyBase64 = bufferToBase64(keyBytes);
+    return { keyBytes, keyBase64, filename: buildFilename(username) };
+}
+
 export const recoveryKey = {
 
     RecoveryKeyError,
@@ -135,27 +144,29 @@ export const recoveryKey = {
      * this in its finally blocks.
      */
     async createAndDownload({ username } = {}) {
-        const keyBytes = randomBytes(KEY_BYTES);
-        const keyBase64 = bufferToBase64(keyBytes);
-
-        const filename = `e2ee-recovery-${username || 'account'}-${new Date()
-            .toISOString().slice(0, 10)}.key`;
-
-        triggerDownload(renderKeyFile(keyBase64, username), filename);
-
-        return { keyBytes, keyBase64, filename };
+        const created = await create({ username });
+        triggerDownload(renderKeyFile(created.keyBase64, username), created.filename);
+        return created;
     },
 
+    /**
+     * Mint a new recovery key WITHOUT downloading it. The recovery-key page
+     * uses this so the file is handed over by an explicit button press.
+     */
+    create,
+
+    /** The file name a key created today for this user would get. */
+    suggestedFilename: buildFilename,
+
     /** Re-download a key the caller already holds, without minting a new one. */
-    downloadExisting({ keyBase64, username } = {}) {
+    downloadExisting({ keyBase64, username, filename } = {}) {
         if (!keyBase64) {
             throw new RecoveryKeyError('RECOVERY_KEY_INVALID', 'No key to download.');
         }
-        const filename = `e2ee-recovery-${username || 'account'}-${new Date()
-            .toISOString().slice(0, 10)}.key`;
+        const name = filename || buildFilename(username);
 
-        triggerDownload(renderKeyFile(keyBase64, username), filename);
-        return { filename };
+        triggerDownload(renderKeyFile(keyBase64, username), name);
+        return { filename: name };
     },
 
     newSalt() {

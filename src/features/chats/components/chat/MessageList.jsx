@@ -1,7 +1,71 @@
-import React, { useEffect, useLayoutEffect, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
-import { useTheme } from '../../../../providers/useTheme.js';
 import MessageBubble from './MessageBubble.jsx';
+import { userDirectory } from '../../../user/service/userDirectory.js';
+
+const CLUSTER_GAP_MS = 5 * 60 * 1000;
+
+const toDate = (value) => {
+    const date = value ? new Date(value) : null;
+    return date && !Number.isNaN(date.getTime()) ? date : null;
+};
+
+const dayLabel = (date) => {
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+
+    if (date.toDateString() === today.toDateString()) return 'Today';
+    if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+
+    return date.toLocaleDateString([], {
+        day: 'numeric',
+        month: 'long',
+        ...(date.getFullYear() !== today.getFullYear() ? { year: 'numeric' } : {})
+    });
+};
+
+/**
+ * Turn a flat message array into what is drawn: day separators, and for each
+ * bubble whether it joins the one above / below it (same sender, same day,
+ * within five minutes). Pure - no state, no effects.
+ */
+function layout(messages, isOwnFn) {
+    const items = [];
+    let lastDay = null;
+
+    messages.forEach((message, index) => {
+        const sentAt = toDate(message.sentAt);
+        const day = sentAt ? sentAt.toDateString() : null;
+
+        if (day && day !== lastDay) {
+            items.push({ type: 'day', key: `day:${day}`, label: dayLabel(sentAt) });
+            lastDay = day;
+        }
+
+        const own = isOwnFn(message);
+        const joins = (a, b) => {
+            if (!a || !b) return false;
+            const ta = toDate(a.sentAt);
+            const tb = toDate(b.sentAt);
+            if (!ta || !tb || ta.toDateString() !== tb.toDateString()) return false;
+            if (isOwnFn(a) !== isOwnFn(b)) return false;
+            if (!isOwnFn(a) && String(a.senderId) !== String(b.senderId)) return false;
+            return Math.abs(tb - ta) <= CLUSTER_GAP_MS;
+        };
+
+        items.push({
+            type: 'message',
+            key: `${message.conversationId}:${message.seq}`,
+            message,
+            isOwn: own,
+            joinedPrev: joins(messages[index - 1], message),
+            joinedNext: joins(message, messages[index + 1])
+        });
+    });
+
+    return items;
+}
 
 /**
  * The scrolling transcript.
@@ -13,6 +77,7 @@ import MessageBubble from './MessageBubble.jsx';
  */
 export default function MessageList({
                                         messages,
+                                        conversation,
                                         conversationId,
                                         selfUserId,
                                         loading,
@@ -20,10 +85,37 @@ export default function MessageList({
                                         onLoadOlder,
                                         onVisible
                                     }) {
-    const { isDark } = useTheme();
     const scroller = useRef(null);
     const atBottom = useRef(true);
     const previousCount = useRef(0);
+    const askedFor = useRef(new Set());
+    const [, refresh] = useState(0);
+
+    const isGroup = conversation?.type === 'group';
+
+    const isOwnFn = (message) =>
+        message.isOutgoing || String(message.senderId) === String(selfUserId);
+
+    const items = useMemo(
+        () => layout(messages, isOwnFn),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [messages, selfUserId]
+    );
+
+    // In a group, name the sender. Profiles for people you never opened a
+    // direct chat with are not cached yet, so fetch each one once.
+    useEffect(() => {
+        if (!isGroup) return;
+
+        const wanted = [...new Set(messages.map((message) => String(message.senderId)).filter(Boolean))]
+            .filter((id) => id !== String(selfUserId))
+            .filter((id) => !userDirectory.cached(id) && !askedFor.current.has(id));
+
+        if (!wanted.length) return;
+
+        wanted.forEach((id) => askedFor.current.add(id));
+        userDirectory.profiles(wanted).then(() => refresh((n) => n + 1));
+    }, [isGroup, messages, selfUserId]);
 
     useLayoutEffect(() => {
         const node = scroller.current;
@@ -40,6 +132,7 @@ export default function MessageList({
     useEffect(() => {
         atBottom.current = true;
         previousCount.current = 0;
+        askedFor.current = new Set();
     }, [conversationId]);
 
     useEffect(() => {
@@ -55,48 +148,50 @@ export default function MessageList({
 
     if (loading && !messages.length) {
         return (
-            <div className="flex-1 flex items-center justify-center">
-                <Loader2 className={`w-5 h-5 animate-spin ${isDark ? 'text-slate-500' : 'text-[#0a1968]'}`} />
+            <div className="ec-thread-empty" role="status" aria-label="Loading messages">
+                <Loader2 className="ec-spin" width={22} height={22} style={{ color: 'var(--ink-2)' }} />
             </div>
         );
     }
 
     if (!messages.length) {
         return (
-            <div className="flex-1 flex items-center justify-center">
-                <p className={`text-xs font-medium ${isDark ? 'text-slate-500' : 'text-slate-600'}`}>
-                    No messages yet. Say something.
-                </p>
+            <div className="ec-thread-empty">
+                <p>No messages yet. Say something.</p>
             </div>
         );
     }
 
-    return (
-        <div
-            ref={scroller}
-            onScroll={handleScroll}
-            className="flex-1 overflow-y-auto py-3 flex flex-col"
-        >
-            {hasMore && (
-                <button
-                    type="button"
-                    onClick={onLoadOlder}
-                    className={`self-center text-[11px] font-semibold mb-2 px-3 py-1 rounded-full ${
-                        isDark ? 'bg-slate-800 text-slate-300' : 'bg-white/70 text-[#0a1968]'
-                    }`}
-                >
-                    Load earlier messages
-                </button>
-            )}
+    const senderNameFor = (message) => {
+        if (!isGroup) return conversation?.displayName ?? '';
+        const profile = userDirectory.cached(message.senderId);
+        return profile?.fullName || (profile?.username ? `@${profile.username}` : '');
+    };
 
-            {messages.map((message) => (
-                <MessageBubble
-                    key={`${message.conversationId}:${message.seq}`}
-                    message={message}
-                    conversationId={conversationId}
-                    isOwn={message.isOutgoing || String(message.senderId) === String(selfUserId)}
-                />
-            ))}
+    return (
+        <div ref={scroller} onScroll={handleScroll} className="ec-scroll">
+            <div className="ec-thread">
+                {hasMore && (
+                    <button type="button" onClick={onLoadOlder} className="ec-more">
+                        Load earlier messages
+                    </button>
+                )}
+
+                {items.map((item) => item.type === 'day'
+                    ? <div key={item.key} className="ec-day">{item.label}</div>
+                    : (
+                        <MessageBubble
+                            key={item.key}
+                            message={item.message}
+                            conversationId={conversationId}
+                            isOwn={item.isOwn}
+                            joinedPrev={item.joinedPrev}
+                            joinedNext={item.joinedNext}
+                            senderName={item.isOwn ? '' : senderNameFor(item.message)}
+                            showSenderName={isGroup}
+                        />
+                    ))}
+            </div>
         </div>
     );
 }

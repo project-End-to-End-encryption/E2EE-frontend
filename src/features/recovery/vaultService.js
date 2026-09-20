@@ -4,13 +4,32 @@ import { mbkStore } from './mbkStore.js';
 import { metaRepo } from '../../infrastructure/storage/repos.js';
 import { bufferToBase64, base64ToBuffer } from '../../shared/utils/encoding.js';
 
+/**
+ * VAULT SERVICE
+ *
+ * Ordering rule for enroll() and rotate() - the whole point of this rewrite:
+ *
+ *   1. mint the recovery key IN MEMORY (nothing is downloaded yet)
+ *   2. derive the vault key from it and encrypt the MBK + identity key
+ *   3. send the encrypted vault to the server
+ *   4. ONLY IF the server accepted it, hand the key file to the user
+ *
+ * Why: previously the .key file was downloaded in step 1. If the request in
+ * step 3 then failed (offline, 401, 409, 500), the user was left holding a
+ * key file that matches nothing on the server - and, in rotate(), they might
+ * throw away their OLD file believing the new one was valid. Now a key file
+ * only ever exists for a vault the server has really stored.
+ */
 
+const unwrap = (res) => (res && typeof res === 'object' && 'success' in res && 'data' in res ? res.data : res);
 
 const AES = 'AES-GCM';
+const KDF_ITERATIONS = 210000;
 
 const importVaultKey = (rawBytes, usages) =>
     crypto.subtle.importKey('raw', rawBytes, AES, false, usages);
 
+// Encrypt bytes under the vault key. A fresh random 12-byte IV per call.
 const sealUnder = async (vaultKeyBytes, plaintextBytes) => {
     const key = await importVaultKey(vaultKeyBytes, ['encrypt']);
     const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -18,6 +37,7 @@ const sealUnder = async (vaultKeyBytes, plaintextBytes) => {
     return { iv: bufferToBase64(iv), ciphertext: bufferToBase64(ciphertext) };
 };
 
+// Reverse of sealUnder. Throws an OperationError if the key or data is wrong.
 const openUnder = async (vaultKeyBytes, box) => {
     const key = await importVaultKey(vaultKeyBytes, ['decrypt']);
     return crypto.subtle.decrypt(
@@ -29,51 +49,88 @@ const openUnder = async (vaultKeyBytes, box) => {
 
 export const vaultService = {
 
-    async enroll({ username, identityPrivateKeyPkcs8 }) {
-        const { keyBytes, keyBase64, filename } = await recoveryKey.createAndDownload({ username });
+    /**
+     * Sign-up: create the vault.
+     *
+     * @param {boolean} [autoDownload=true]  true  = this function downloads the
+     *        key file itself, right after the server accepts the vault.
+     *        false = the caller (the /signup/keys page) shows a button and
+     *        downloads it later using the returned keyBase64.
+     */
+    async enroll({ username, identityPrivateKeyPkcs8, autoDownload = true }) {
+        // Step 1: mint the key in memory only. `create` does NOT download.
+        const { keyBytes, keyBase64, filename } = await recoveryKey.create({ username });
 
-        const saltBase64 = recoveryKey.newSalt();
-        const iterations = 210000;
-        const { vaultKey, verifier } = await recoveryKey.deriveVaultKeys(keyBytes, {
-            saltBase64, iterations
-        });
-
-        // The MBK. These 32 bytes exist in JS for the duration of this function
-        // and never again.
+        let vaultKey = null;
+        // The MBK: 32 random bytes that live in JS only for this function.
         const mbkBytes = crypto.getRandomValues(new Uint8Array(32));
 
         try {
+            // Step 2: derive the vault key + verifier, then encrypt the secrets.
+            const saltBase64 = recoveryKey.newSalt();
+            const derived = await recoveryKey.deriveVaultKeys(keyBytes, {
+                saltBase64,
+                iterations: KDF_ITERATIONS
+            });
+            vaultKey = derived.vaultKey;
+
             const encryptedMasterBackupKey = await sealUnder(vaultKey, mbkBytes);
             const encryptedIdentityKey = await sealUnder(vaultKey, identityPrivateKeyPkcs8);
 
-            const result = await request('/api/v1/recovery/vault', {
+            // Step 3: send to the server. If this throws we exit here, no file
+            // has been given to the user, and the caller can simply retry
+            // (a retry mints a brand-new key).
+            const result = unwrap(await request('/api/v1/recovery/vault', {
                 version: 1,
-                kdf: { algorithm: 'PBKDF2', hash: 'SHA-256', iterations, salt: saltBase64 },
-                verifier,
+                kdf: { algorithm: 'PBKDF2', hash: 'SHA-256', iterations: KDF_ITERATIONS, salt: saltBase64 },
+                verifier: derived.verifier,
                 encryptedIdentityKey,
                 encryptedMasterBackupKey
-            }, { method: 'POST' });
+            }, { method: 'POST' }));
 
-            // Import as non-extractable and persist. From here the user can
-            // refresh and restart without touching the key file again.
-            await mbkStore.set(mbkBytes);
-            await metaRepo.set('vault.generation', result.generation ?? 1);
+            // Step 4: the server has the vault, so the key is now valid.
+            // Deliver it BEFORE any local bookkeeping, so nothing below can
+            // stop the user from getting their file.
+            if (autoDownload) {
+                recoveryKey.downloadExisting({ keyBase64, username, filename });
+            }
+
+            // Local caching is best-effort from here on. The server state is
+            // already committed; if we threw, the caller might retry enroll()
+            // and hit "vault already exists". Worst case the user uploads the
+            // key file once on next launch.
+            try {
+                await mbkStore.set(mbkBytes);   // imports as non-extractable + persists
+                await metaRepo.set('vault.generation', result.generation ?? 1);
+            } catch (error) {
+                console.warn('[vaultService] enrolled, but local cache failed:', error.message);
+            }
 
             return { filename, keyBase64, generation: result.generation };
 
         } finally {
+            // Always wipe raw key material, success or failure.
             mbkBytes.fill(0);
             keyBytes.fill(0);
-            vaultKey.fill(0);
+            vaultKey?.fill(0);
         }
     },
 
+    async status() {
+        const data = unwrap(await request('/api/v1/recovery/vault/status', null, { method: 'GET' }));
+        return { exists: !!data?.exists, generation: data?.generation ?? null };
+    },
 
+
+    /**
+     * New device / cleared storage: read the .key file, unlock the vault.
+     * (Unchanged apart from comments - restore never creates a key file.)
+     */
     async restore(file, { rememberDevice = true } = {}) {
         const { keyBytes } = await recoveryKey.readKeyFromFile(file);
 
         try {
-            const vault = await request('/api/v1/recovery/vault', null, { method: 'GET' });
+            const vault = unwrap(await request('/api/v1/recovery/vault', null, { method: 'GET' }));
 
             const { vaultKey, verifier } = await recoveryKey.deriveVaultKeys(keyBytes, {
                 saltBase64: vault.kdf.salt,
@@ -81,8 +138,8 @@ export const vaultService = {
             });
 
             try {
-                // Cheap check that lets us say "wrong key file" instead of
-                // surfacing a raw OperationError from WebCrypto.
+                // Cheap check so we can say "wrong key file" instead of
+                // surfacing a raw WebCrypto OperationError.
                 if (verifier !== vault.verifier) {
                     throw new recoveryKey.RecoveryKeyError(
                         'WRONG_KEY',
@@ -93,13 +150,15 @@ export const vaultService = {
                 const box = vault.encryptedMasterBackupKey;
                 const unwrappingKey = await importVaultKey(vaultKey, ['unwrapKey']);
 
+                // Unwrap straight into a NON-extractable CryptoKey, so the raw
+                // MBK bytes never exist in JS on this path.
                 const mbkKey = await crypto.subtle.unwrapKey(
                     'raw',
                     base64ToBuffer(box.ciphertext),
                     unwrappingKey,
                     { name: AES, iv: new Uint8Array(base64ToBuffer(box.iv)) },
-                    { name: AES },        // algorithm of the unwrapped key
-                    false,                // <- non-extractable, the whole point
+                    { name: AES },
+                    false,
                     ['encrypt', 'decrypt']
                 );
 
@@ -108,6 +167,7 @@ export const vaultService = {
                 await mbkStore.setKey(mbkKey, { persist: rememberDevice });
                 await metaRepo.set('vault.generation', vault.generation ?? 1);
 
+                // Fire-and-forget: tells the server a restore happened.
                 request('/api/v1/recovery/vault/restore', {}, { method: 'POST' }).catch(() => {});
 
                 return { identityPkcs8, generation: vault.generation };
@@ -121,23 +181,34 @@ export const vaultService = {
     },
 
 
-    async rotate({ username, currentKeyFile }) {
-        // 1. prove ownership of the current key and pull the MBK back out
+    /**
+     * Replace the recovery key. The MBK and identity key stay the same; only
+     * the wrapping changes, so old chat history stays readable.
+     *
+     * Same ordering rule as enroll(): the NEW key file is only handed over
+     * after the server has accepted the re-wrapped vault. Until then the OLD
+     * key file is still the valid one - and the user is never told otherwise.
+     */
+    async rotate({ username, currentKeyFile, autoDownload = true }) {
+        // 1. Prove ownership of the current key and unlock the secrets.
         const { keyBytes: oldKeyBytes } = await recoveryKey.readKeyFromFile(currentKeyFile);
 
         let mbkBytes = null;
+        let identityBytes = null;
         let oldVaultKey = null;
+        let newKeyBytes = null;
+        let newVaultKey = null;
 
         try {
             const vault = await request('/api/v1/recovery/vault', null, { method: 'GET' });
 
-            const derived = await recoveryKey.deriveVaultKeys(oldKeyBytes, {
+            const old = await recoveryKey.deriveVaultKeys(oldKeyBytes, {
                 saltBase64: vault.kdf.salt,
                 iterations: vault.kdf.iterations
             });
-            oldVaultKey = derived.vaultKey;
+            oldVaultKey = old.vaultKey;
 
-            if (derived.verifier !== vault.verifier) {
+            if (old.verifier !== vault.verifier) {
                 throw new recoveryKey.RecoveryKeyError(
                     'WRONG_KEY',
                     'That is not the current recovery key for this account.'
@@ -145,47 +216,61 @@ export const vaultService = {
             }
 
             mbkBytes = new Uint8Array(await openUnder(oldVaultKey, vault.encryptedMasterBackupKey));
-            const identityPkcs8 = await openUnder(oldVaultKey, vault.encryptedIdentityKey);
+            identityBytes = new Uint8Array(await openUnder(oldVaultKey, vault.encryptedIdentityKey));
 
-            // 2. mint the new recovery key and hand the file over
-            const { keyBytes: newKeyBytes, keyBase64, filename } =
-                await recoveryKey.createAndDownload({ username });
+            // 2. Mint the NEW key in memory only - no download yet.
+            const created = await recoveryKey.create({ username });
+            newKeyBytes = created.keyBytes;
 
-            let newVaultKey = null;
-            try {
-                const saltBase64 = recoveryKey.newSalt();
-                const iterations = 210000;
-                const fresh = await recoveryKey.deriveVaultKeys(newKeyBytes, { saltBase64, iterations });
-                newVaultKey = fresh.vaultKey;
+            // 3. Re-wrap the SAME secrets under the new key.
+            const saltBase64 = recoveryKey.newSalt();
+            const fresh = await recoveryKey.deriveVaultKeys(newKeyBytes, {
+                saltBase64,
+                iterations: KDF_ITERATIONS
+            });
+            newVaultKey = fresh.vaultKey;
 
-                const result = await request('/api/v1/recovery/vault', {
-                    version: 1,
-                    kdf: { algorithm: 'PBKDF2', hash: 'SHA-256', iterations, salt: saltBase64 },
-                    verifier: fresh.verifier,
-                    // SAME identity key, SAME MBK, new wrapping. This is what
-                    // keeps history readable across a rotation.
-                    encryptedIdentityKey: await sealUnder(newVaultKey, identityPkcs8),
-                    encryptedMasterBackupKey: await sealUnder(newVaultKey, mbkBytes)
-                }, { method: 'PUT' });
+            const result = await request('/api/v1/recovery/vault', {
+                version: 1,
+                kdf: { algorithm: 'PBKDF2', hash: 'SHA-256', iterations: KDF_ITERATIONS, salt: saltBase64 },
+                verifier: fresh.verifier,
+                encryptedIdentityKey: await sealUnder(newVaultKey, identityBytes),
+                encryptedMasterBackupKey: await sealUnder(newVaultKey, mbkBytes)
+            }, { method: 'PUT' });
 
-                await metaRepo.set('vault.generation', result.generation);
-
-                // The local MBK is unchanged, so mbkStore is not touched. The
-                // user stays logged in and nothing has to resync.
-                return { filename, keyBase64, generation: result.generation };
-
-            } finally {
-                newKeyBytes.fill(0);
-                newVaultKey?.fill(0);
+            // 4. Server accepted -> the OLD file is now dead, the NEW one is
+            // live. Only now give the user the new file.
+            if (autoDownload) {
+                recoveryKey.downloadExisting({
+                    keyBase64: created.keyBase64,
+                    username,
+                    filename: created.filename
+                });
             }
+
+            // The local MBK did not change, so mbkStore is untouched and the
+            // user stays logged in with nothing to resync.
+            try {
+                await metaRepo.set('vault.generation', result.generation);
+            } catch (error) {
+                console.warn('[vaultService] rotated, but local generation write failed:', error.message);
+            }
+
+            return { filename: created.filename, keyBase64: created.keyBase64, generation: result.generation };
+
         } finally {
+            // Wipe everything that touched raw key material.
             mbkBytes?.fill(0);
+            identityBytes?.fill(0);
             oldVaultKey?.fill(0);
+            newVaultKey?.fill(0);
+            newKeyBytes?.fill(0);
             oldKeyBytes.fill(0);
         }
     },
 
 
+    /** Destroy the vault on the server and forget the local MBK. */
     async reset() {
         const result = await request(
             '/api/v1/recovery/vault',

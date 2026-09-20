@@ -17,9 +17,15 @@ function openDb() {
             if (!db.objectStoreNames.contains(STORE_RECEIVED)) db.createObjectStore(STORE_RECEIVED, {keyPath: 'senderKey'});
         };
         request.onsuccess = () => {
-            dbInstance = request.result;
-            resolve(request.result);
-        }
+            const db = request.result;
+            // close when asked, so deleteDatabase / future upgrades can proceed
+            db.onversionchange = () => {
+                db.close();
+                if (dbInstance === db) dbInstance = null;
+            };
+            dbInstance = db;
+            resolve(db);
+        };
         request.onerror = () => reject(request.error);
     });
 }

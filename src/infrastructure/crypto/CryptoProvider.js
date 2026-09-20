@@ -1,5 +1,8 @@
 export class ICryptoProvider {
-    async generateIdentityKeyPair() {
+    async generateIdentityKeyPair({ extractable = false } = {}) {
+        throw new Error("Not implemented");
+    }
+    async exportAndLockIdentityKeyPair(keyPair) {
         throw new Error("Not implemented");
     }
     async generateSignedPreKey(identityPrivateKey, keyId) {

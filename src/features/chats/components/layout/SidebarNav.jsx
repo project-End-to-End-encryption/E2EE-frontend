@@ -1,7 +1,10 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { MessageSquare, Phone, Bookmark, Settings } from 'lucide-react';
-import { useTheme } from '../../../../providers/useTheme.js';
 import SettingsMenu from './SettingsMenu.jsx';
+import Avatar from '../../../../components/common/Avatar.jsx';
+import { useSelf } from '../../hooks/useSelf.js';
+
+import E2ELogoSVG from '../../../../assets/E2EE.svg';
 
 const TABS = [
     { id: 'chat', Icon: MessageSquare, label: 'Chats' },
@@ -9,57 +12,110 @@ const TABS = [
     { id: 'saved', Icon: Bookmark, label: 'Saved' }
 ];
 
+const CONNECTION_LABEL = {
+    online: 'Connected',
+    connecting: 'Connecting',
+    offline: 'Offline'
+};
+
 /**
- * The vertical tab rail. Identical buttons, states and colours to the
- * original; the settings popover is now its own component instead of eighty
- * lines of nested ternaries inside the nav.
+ * The icon rail: logo, the three tabs, then settings and the user's own
+ * avatar at the bottom. On a phone the same markup becomes a bottom bar (see
+ * the max-width: 767px block in chat.css).
+ *
+ * The settings popover is its own component. It closes on Escape and on a
+ * click anywhere outside it.
  */
 export default function SidebarNav({
-    activeTab,
-    onTabChange,
-    showSettingsMenu,
-    onToggleSettings,
-    settingsView,
-    onSettingsViewChange,
-    onCloseSettings
-}) {
-    const { isDark } = useTheme();
+                                       activeTab,
+                                       onTabChange,
+                                       unreadTotal = 0,
+                                       showSettingsMenu,
+                                       onToggleSettings,
+                                       settingsView,
+                                       onSettingsViewChange,
+                                       onCloseSettings
+                                   }) {
+    const { profile, connection } = useSelf();
+    const settingsRef = useRef(null);
 
-    const buttonClass = (isActive) => `w-10 h-10 rounded-xl flex items-center justify-center font-bold transition-all cursor-pointer ${
-        isActive
-            ? 'bg-[#0a1968] text-white shadow-md'
-            : isDark ? 'text-slate-300 hover:bg-slate-800' : 'text-[#0a1968] hover:bg-[#b2d1f8]/60'
-    }`;
+    useEffect(() => {
+        if (!showSettingsMenu) return undefined;
+
+        const onPointerDown = (event) => {
+            if (!settingsRef.current?.contains(event.target)) onCloseSettings?.();
+        };
+        const onKeyDown = (event) => {
+            if (event.key === 'Escape') onCloseSettings?.();
+        };
+
+        document.addEventListener('pointerdown', onPointerDown);
+        document.addEventListener('keydown', onKeyDown);
+        return () => {
+            document.removeEventListener('pointerdown', onPointerDown);
+            document.removeEventListener('keydown', onKeyDown);
+        };
+    }, [showSettingsMenu, onCloseSettings]);
+
+    const selfName = profile?.fullName || profile?.username || '';
 
     return (
-        <nav className="flex flex-col gap-2 mb-4">
-            {TABS.map(({ id, Icon, label }) => (
-                <button
-                    key={id}
-                    aria-label={label}
-                    onClick={() => onTabChange(id)}
-                    className={buttonClass(activeTab === id)}
-                >
-                    <Icon className={`w-4.5 h-4.5 ${activeTab === id ? 'fill-current stroke-none' : ''}`} />
-                </button>
-            ))}
+        <nav className="ec-rail" aria-label="Main">
+            <img src={E2ELogoSVG} alt="E2EE" className="ec-rail__logo" />
 
-            <div className="relative">
-                <button
-                    aria-label="Settings"
-                    onClick={onToggleSettings}
-                    className={buttonClass(activeTab === 'settings')}
-                >
-                    <Settings className="w-4.5 h-4.5" />
-                </button>
+            <div className="ec-rail__nav">
+                {TABS.map(({ id, Icon, label }) => (
+                    <button
+                        key={id}
+                        type="button"
+                        title={label}
+                        aria-label={label}
+                        aria-current={activeTab === id ? 'page' : undefined}
+                        onClick={() => onTabChange(id)}
+                        className={`ec-navbtn ${activeTab === id ? 'is-active' : ''}`}
+                    >
+                        <Icon />
+                        {id === 'chat' && unreadTotal > 0 && activeTab !== 'chat' && (
+                            <span className="ec-navbtn__count">{unreadTotal > 99 ? '99+' : unreadTotal}</span>
+                        )}
+                    </button>
+                ))}
+            </div>
 
-                {showSettingsMenu && activeTab === 'settings' && (
-                    <SettingsMenu
-                        view={settingsView}
-                        onViewChange={onSettingsViewChange}
-                        onClose={onCloseSettings}
+            <div className="ec-rail__spacer" />
+
+            <div className="ec-rail__foot">
+                <div ref={settingsRef} style={{ position: 'relative' }}>
+                    <button
+                        type="button"
+                        title="Settings"
+                        aria-label="Settings"
+                        aria-haspopup="menu"
+                        aria-expanded={showSettingsMenu}
+                        onClick={onToggleSettings}
+                        className={`ec-navbtn ${showSettingsMenu ? 'is-active' : ''}`}
+                    >
+                        <Settings />
+                    </button>
+
+                    {showSettingsMenu && (
+                        <SettingsMenu
+                            view={settingsView}
+                            onViewChange={onSettingsViewChange}
+                            onClose={onCloseSettings}
+                        />
+                    )}
+                </div>
+
+                <span className="ec-self" title={`${selfName || 'You'} - ${CONNECTION_LABEL[connection] ?? ''}`}>
+                    <Avatar name={selfName} seed={profile?.userId ?? selfName} size={44} />
+                    <span
+                        className="ec-status"
+                        data-state={connection}
+                        role="img"
+                        aria-label={CONNECTION_LABEL[connection] ?? 'Connection unknown'}
                     />
-                )}
+                </span>
             </div>
         </nav>
     );

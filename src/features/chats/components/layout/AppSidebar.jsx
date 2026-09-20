@@ -1,5 +1,4 @@
-import React, { useState } from 'react';
-import { useTheme } from '../../../../providers/useTheme.js';
+import React, { useMemo, useState } from 'react';
 import { useConversations } from '../../hooks/useConversations.js';
 import { useUserSearch } from '../../hooks/useUserSearch.js';
 import SidebarNav from './SidebarNav.jsx';
@@ -8,15 +7,28 @@ import ConversationList from '../conversation/ConversationList.jsx';
 import UserSearchResults from '../conversation/UserSearchResults.jsx';
 import { messageFor } from '../../../../shared/constants/errorCodes.js';
 
-import E2ELogoSVG from '../../../../assets/E2EE.svg';
+const FILTERS = [
+    { id: 'all', label: 'All' },
+    { id: 'direct', label: 'Direct' },
+    { id: 'group', label: 'Groups' },
+    { id: 'unread', label: 'Unread' }
+];
+
+const matches = (filter, conversation) => {
+    if (filter === 'direct') return conversation.type !== 'group';
+    if (filter === 'group') return conversation.type === 'group';
+    if (filter === 'unread') return (conversation.unreadCount || 0) > 0;
+    return true;
+};
 
 /**
  * AppSidebar
  *
- * Owns the sidebar's own state (what is typed in the search box, which tab is
- * open) and nothing else. Conversations come from useConversations, people
- * come from useUserSearch; neither this file nor anything below it touches
- * IndexedDB or the socket.
+ * Renders two siblings - the icon rail and the conversation panel - and owns
+ * the state that belongs to them (what is typed in the search box, which
+ * filter is on, whether the settings menu is open). Conversations come from
+ * useConversations, people come from useUserSearch; neither this file nor
+ * anything below it touches IndexedDB or the socket.
  */
 export default function AppSidebar({
                                        activeTab,
@@ -24,9 +36,8 @@ export default function AppSidebar({
                                        activeConversationId,
                                        onSelectConversation
                                    }) {
-    const { isDark } = useTheme();
-
     const [query, setQuery] = useState('');
+    const [filter, setFilter] = useState('all');
     const [showSettingsMenu, setShowSettingsMenu] = useState(false);
     const [settingsView, setSettingsView] = useState('main');
     const [openingUserId, setOpeningUserId] = useState(null);
@@ -35,14 +46,34 @@ export default function AppSidebar({
     const { conversations, loading, openDirectWith } = useConversations();
     const search = useUserSearch(query, { enabled: activeTab === 'chat' });
 
-    const handleTabChange = (tab) => {
-        onTabChange(tab);
+    const unreadTotal = useMemo(
+        () => conversations.reduce((sum, row) => sum + (row.unreadCount || 0), 0),
+        [conversations]
+    );
+
+    const unreadRows = useMemo(
+        () => conversations.filter((row) => (row.unreadCount || 0) > 0).length,
+        [conversations]
+    );
+
+    const visible = useMemo(
+        () => conversations.filter((row) => matches(filter, row)),
+        [conversations, filter]
+    );
+
+    const closeSettings = () => {
         setShowSettingsMenu(false);
         setSettingsView('main');
     };
 
+    const handleTabChange = (tab) => {
+        onTabChange(tab);
+        closeSettings();
+    };
+
+    // Settings is a menu, not a page: opening it leaves the current tab and
+    // the open conversation exactly where they were.
     const handleToggleSettings = () => {
-        onTabChange('settings');
         setShowSettingsMenu((open) => !open);
         setSettingsView('main');
     };
@@ -70,62 +101,66 @@ export default function AppSidebar({
     const searching = Boolean(query.trim());
 
     return (
-        <aside className={`w-[280px] rounded-2xl flex flex-col p-4 shrink-0 shadow-md relative transition-colors duration-300 overflow-visible ${
-            isDark
-                ? 'bg-[#0f172a] border border-slate-800 text-slate-100'
-                : 'bg-[#9cc2f5] border border-[#b2d1f8]/60 text-slate-800'
-        }`}>
-
-            <div className="flex items-center gap-3 mb-5 pl-1">
-                <img src={E2ELogoSVG} alt="E2EE Logo" className="w-10 h-10 object-contain" />
-                <div className="flex flex-col">
-                    <h2 className="text-2xl font-black leading-none tracking-wide flex items-center">
-                        <span className={isDark ? 'text-white' : 'text-[#0a1968]'}>E</span>
-                        <span className="text-[#00a8cc]">2</span>
-                        <span className={isDark ? 'text-white' : 'text-[#0a1968]'}>EE</span>
-                    </h2>
-                    <span className={`text-[11px] font-bold tracking-tight mt-1 ${isDark ? 'text-slate-400' : 'text-[#0a1968]'}`}>
-                        Chat Beyond Limits
-                    </span>
-                </div>
-            </div>
-
-            <SearchBar value={query} onChange={setQuery} isSearching={search.isSearching} />
-
+        <>
             <SidebarNav
                 activeTab={activeTab}
                 onTabChange={handleTabChange}
+                unreadTotal={unreadTotal}
                 showSettingsMenu={showSettingsMenu}
                 onToggleSettings={handleToggleSettings}
                 settingsView={settingsView}
                 onSettingsViewChange={setSettingsView}
-                onCloseSettings={() => setShowSettingsMenu(false)}
+                onCloseSettings={closeSettings}
             />
 
-            <div className={`w-full h-[1px] mb-4 ${isDark ? 'bg-slate-800' : 'bg-[#b2d1f8]'}`} />
+            <aside className="ec-list" aria-label="Conversations">
+                <div className="ec-brand">
+                    <h2 className="ec-brand__mark">E<b>2</b>EE</h2>
+                    <p className="ec-brand__tag">Chat Beyond Limits</p>
+                </div>
 
-            {openError && (
-                <p className="text-[11px] font-medium text-red-500 px-2 pb-2">
-                    {messageFor(openError)}
-                </p>
-            )}
+                <SearchBar value={query} onChange={setQuery} isSearching={search.isSearching} />
 
-            {searching && (
-                <UserSearchResults
-                    status={search.status}
-                    users={search.users}
-                    errorMessage={search.errorMessage}
-                    onSelect={handleSelectUser}
-                    busyUserId={openingUserId}
+                {!searching && conversations.length > 0 && (
+                    <div className="ec-chips" role="group" aria-label="Filter conversations">
+                        {FILTERS.map(({ id, label }) => (
+                            <button
+                                key={id}
+                                type="button"
+                                aria-pressed={filter === id}
+                                onClick={() => setFilter(id)}
+                                className={`ec-chip ${filter === id ? 'is-active' : ''}`}
+                            >
+                                {label}
+                                {id === 'unread' && unreadRows > 0 && (
+                                    <span className="ec-chip__n">{unreadRows}</span>
+                                )}
+                            </button>
+                        ))}
+                    </div>
+                )}
+
+                {openError && <p className="ec-alert" role="alert">{messageFor(openError)}</p>}
+
+                {searching && (
+                    <UserSearchResults
+                        status={search.status}
+                        users={search.users}
+                        errorMessage={search.errorMessage}
+                        onSelect={handleSelectUser}
+                        busyUserId={openingUserId}
+                    />
+                )}
+
+                <ConversationList
+                    conversations={visible}
+                    totalCount={conversations.length}
+                    filter={filter}
+                    loading={loading}
+                    activeConversationId={activeConversationId}
+                    onSelect={onSelectConversation}
                 />
-            )}
-
-            <ConversationList
-                conversations={conversations}
-                loading={loading}
-                activeConversationId={activeConversationId}
-                onSelect={onSelectConversation}
-            />
-        </aside>
+            </aside>
+        </>
     );
 }

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Camera, User, Loader2, AlertCircle } from "lucide-react";
 import {
     COLORS,
@@ -289,11 +289,12 @@ export default function ProfileSetup({ onContinue }) {
         setErrorMsg("");
 
         try {
+
+            // Is lines ko uploadPhotoInBackground ke start se hata/clean kar dein:
             if (!ALLOWED.includes(file.type)) {
                 setErrorMsg("Only JPG, PNG, and WebP images are allowed.");
-                return null;
+                return null; // Return missing tha pehle
             }
-
             // 1. Get presigned upload URL from backend
             const res = await fetch(UPLOAD_URL_ENDPOINT, {
                 method: "POST",
@@ -315,7 +316,7 @@ export default function ProfileSetup({ onContinue }) {
             // 2. Direct binary PUT upload to MinIO/S3
             const uploadRes = await fetch(uploadUrl, {
                 method: "PUT",
-                headers: { "Content-Type": file.type },
+                headers: { "Content-Type": "image/jpeg" },
                 body: file, // Send binary blob directly
             });
 
@@ -378,11 +379,11 @@ export default function ProfileSetup({ onContinue }) {
             const data = await res.json();
 
             if (res.ok && (data.success || data.statusCode === 200)) {
-                // Callback or direct navigation to chat page
+                // Callback, then on to the recovery-key page (which leads to chat)
                 if (typeof onContinue === "function") {
                     onContinue();
                 }
-                navigate("/chat", { replace: true });
+                navigate("/signup/keys", { replace: true });
             } else {
                 setErrorMsg(data.message || "Failed to save profile details.");
             }
@@ -504,7 +505,7 @@ export default function ProfileSetup({ onContinue }) {
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
                         placeholder="Your name"
-                        className="e2ee-login-input rounded px-4 py-3 text-sm transition-colors duration-150"
+                        className="wisp-login-input rounded px-4 py-3 text-sm transition-colors duration-150"
                         style={inputStyle}
                     />
                 </Field>
@@ -515,7 +516,7 @@ export default function ProfileSetup({ onContinue }) {
                         onChange={(e) => setBio(e.target.value)}
                         placeholder="Tell people a little about yourself"
                         rows={3}
-                        className="e2ee-login-input resize-none rounded px-4 py-3 text-sm transition-colors duration-150"
+                        className="wisp-login-input resize-none rounded px-4 py-3 text-sm transition-colors duration-150"
                         style={inputStyle}
                     />
                 </Field>
@@ -539,6 +540,17 @@ export default function ProfileSetup({ onContinue }) {
                         <span>Continue</span>
                     )}
                 </button>
+
+                {/* Dummy navigation / Skip link */}
+                <div className="mt-2 text-center">
+                    <Link
+                        to="/"
+                        style={{ color: COLORS.midGray, fontFamily: DISPLAY_FONT }}
+                        className="text-xs transition-colors hover:underline hover:text-white"
+                    >
+                        Skip for now &rarr; Go to Home
+                    </Link>
+                </div>
             </form>
 
             {pendingPhotoSrc && (
