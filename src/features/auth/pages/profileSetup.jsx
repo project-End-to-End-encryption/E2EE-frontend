@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Camera, User, Loader2, AlertCircle } from "lucide-react";
 import {
     COLORS,
@@ -289,12 +289,11 @@ export default function ProfileSetup({ onContinue }) {
         setErrorMsg("");
 
         try {
+            if (!ALLOWED.includes(file.type)) {
+                setErrorMsg("Only JPG, PNG, and WebP images are allowed.");
+                return null;
+            }
 
-            // Is lines ko uploadPhotoInBackground ke start se hata/clean kar dein:
-if (!ALLOWED.includes(file.type)) {
-    setErrorMsg("Only JPG, PNG, and WebP images are allowed.");
-    return null; // Return missing tha pehle
-}
             // 1. Get presigned upload URL from backend
             const res = await fetch(UPLOAD_URL_ENDPOINT, {
                 method: "POST",
@@ -316,7 +315,7 @@ if (!ALLOWED.includes(file.type)) {
             // 2. Direct binary PUT upload to MinIO/S3
             const uploadRes = await fetch(uploadUrl, {
                 method: "PUT",
-                headers: { "Content-Type": "image/jpeg" },
+                headers: { "Content-Type": file.type },
                 body: file, // Send binary blob directly
             });
 
@@ -347,53 +346,53 @@ if (!ALLOWED.includes(file.type)) {
     };
 
     const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!fullName.trim() || isSubmitting) return;
+        e.preventDefault();
+        if (!fullName.trim() || isSubmitting) return;
 
-    setIsSubmitting(true);
-    setErrorMsg("");
+        setIsSubmitting(true);
+        setErrorMsg("");
 
-    try {
-        let keyToSubmit = profilePictureKey;
+        try {
+            let keyToSubmit = profilePictureKey;
 
-        if (uploadPromiseRef.current && !keyToSubmit) {
-            keyToSubmit = await uploadPromiseRef.current;
-        }
-
-        const payload = {
-            fullName: fullName.trim(),
-            userBio: bio.trim(),
-        };
-
-        if (keyToSubmit) {
-            payload.profilePictureKey = keyToSubmit;
-        }
-
-        const res = await fetch(PROFILE_ENDPOINT, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify(payload),
-        });
-
-        const data = await res.json();
-
-        if (res.ok && (data.success || data.statusCode === 200)) {
-            // Callback or direct navigation to chat page
-            if (typeof onContinue === "function") {
-                onContinue();
+            if (uploadPromiseRef.current && !keyToSubmit) {
+                keyToSubmit = await uploadPromiseRef.current;
             }
-            navigate("/chat", { replace: true });
-        } else {
-            setErrorMsg(data.message || "Failed to save profile details.");
+
+            const payload = {
+                fullName: fullName.trim(),
+                userBio: bio.trim(),
+            };
+
+            if (keyToSubmit) {
+                payload.profilePictureKey = keyToSubmit;
+            }
+
+            const res = await fetch(PROFILE_ENDPOINT, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify(payload),
+            });
+
+            const data = await res.json();
+
+            if (res.ok && (data.success || data.statusCode === 200)) {
+                // Callback or direct navigation to chat page
+                if (typeof onContinue === "function") {
+                    onContinue();
+                }
+                navigate("/chat", { replace: true });
+            } else {
+                setErrorMsg(data.message || "Failed to save profile details.");
+            }
+        } catch (err) {
+            console.error("Profile submit error:", err);
+            setErrorMsg("An unexpected error occurred. Please try again.");
+        } finally {
+            setIsSubmitting(false);
         }
-    } catch (err) {
-        console.error("Profile submit error:", err);
-        setErrorMsg("An unexpected error occurred. Please try again.");
-    } finally {
-        setIsSubmitting(false);
-    }
-};
+    };
 
     return (
         <AuthPageShell
@@ -505,7 +504,7 @@ if (!ALLOWED.includes(file.type)) {
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
                         placeholder="Your name"
-                        className="wisp-login-input rounded px-4 py-3 text-sm transition-colors duration-150"
+                        className="e2ee-login-input rounded px-4 py-3 text-sm transition-colors duration-150"
                         style={inputStyle}
                     />
                 </Field>
@@ -516,7 +515,7 @@ if (!ALLOWED.includes(file.type)) {
                         onChange={(e) => setBio(e.target.value)}
                         placeholder="Tell people a little about yourself"
                         rows={3}
-                        className="wisp-login-input resize-none rounded px-4 py-3 text-sm transition-colors duration-150"
+                        className="e2ee-login-input resize-none rounded px-4 py-3 text-sm transition-colors duration-150"
                         style={inputStyle}
                     />
                 </Field>
@@ -540,17 +539,6 @@ if (!ALLOWED.includes(file.type)) {
                         <span>Continue</span>
                     )}
                 </button>
-
-                {/* Dummy navigation / Skip link */}
-                <div className="mt-2 text-center">
-                    <Link
-                        to="/"
-                        style={{ color: COLORS.midGray, fontFamily: DISPLAY_FONT }}
-                        className="text-xs transition-colors hover:underline hover:text-white"
-                    >
-                        Skip for now &rarr; Go to Home
-                    </Link>
-                </div>
             </form>
 
             {pendingPhotoSrc && (

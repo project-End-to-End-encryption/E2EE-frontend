@@ -1,17 +1,12 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
-import {
-  COLORS,
-  DISPLAY_FONT,
-  CAPTION_FONT,
-  AuthPageShell,
-  Field,
-  inputStyle,
-} from "../components/sidepanel";
+
+// Using the centralized theme created in the previous step
+import { COLORS, DISPLAY_FONT, CAPTION_FONT } from "../../../shared/constants/theme";
+import { AuthPageShell, Field, inputStyle } from "../components/sidepanel";
 
 const USERNAME_PATTERN = /^[a-zA-Z0-9_]{3,20}$/;
-
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 async function checkUsername(username) {
@@ -41,8 +36,8 @@ export default function CheckUsername({ onCheckUsername, onContinue }) {
   const runCheck = onCheckUsername || checkUsername;
 
   const handleChange = (e) => {
-    // Strip '@' if the user manually pastes or types it in the input box
     setUsername(e.target.value);
+
     if (status !== "idle") {
       setStatus("idle");
       setMessage("");
@@ -70,7 +65,7 @@ export default function CheckUsername({ onCheckUsername, onContinue }) {
     setStatus("checking");
     setMessage("");
 
-    // Concatenate '@' at the beginning of the username
+    // Consistently concatenate '@' at the beginning of the username
     const formattedUsername = `${trimmed}`;
 
     try {
@@ -98,11 +93,14 @@ export default function CheckUsername({ onCheckUsername, onContinue }) {
   const isChecking = status === "checking";
   const isAvailable = status === "available";
   const isTaken = status === "taken";
+  const isError = status === "error";
+
+  const errorColor = "#ef4444"; // Standard accessible red for errors
 
   const statusColor = isAvailable
-      ? COLORS.obsidian
-      : isTaken || status === "error"
-          ? COLORS.otherText
+      ? COLORS.teal
+      : (isTaken || isError)
+          ? errorColor
           : COLORS.ash;
 
   return (
@@ -141,8 +139,8 @@ export default function CheckUsername({ onCheckUsername, onContinue }) {
                   className="absolute left-4 pointer-events-none select-none text-sm font-medium"
                   style={{ color: COLORS.ash }}
               >
-              @
-            </span>
+                @
+              </span>
               <input
                   type="text"
                   value={username}
@@ -155,20 +153,20 @@ export default function CheckUsername({ onCheckUsername, onContinue }) {
                   style={inputStyle}
               />
               <span className="absolute right-3 top-1/2 -translate-y-1/2">
-              {isChecking && (
-                  <Loader2
-                      size={17}
-                      style={{ color: COLORS.ash }}
-                      className="animate-spin"
-                  />
-              )}
+                {isChecking && (
+                    <Loader2
+                        size={17}
+                        style={{ color: COLORS.ash }}
+                        className="animate-spin"
+                    />
+                )}
                 {isAvailable && (
                     <CheckCircle2 size={17} style={{ color: COLORS.teal }} />
                 )}
                 {isTaken && (
-                    <XCircle size={17} style={{ color: COLORS.otherText }} />
+                    <XCircle size={17} style={{ color: errorColor }} />
                 )}
-            </span>
+              </span>
             </div>
             {message && (
                 <p

@@ -1,10 +1,10 @@
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
+
+// Point to the centralized theme for consistent contrast
+import { COLORS, DISPLAY_FONT, CAPTION_FONT } from "../../../shared/constants/theme";
 import {
-    COLORS,
-    DISPLAY_FONT,
-    CAPTION_FONT,
     AuthPageShell,
     Field,
     Divider,
@@ -14,7 +14,7 @@ import {
     inputStyle,
 } from "../components/sidepanel";
 
-import {register} from "../service/authService.js";
+import { register } from "../service/authService.js";
 
 export default function E2EESignup({
                                        onSignup,
@@ -51,6 +51,8 @@ export default function E2EESignup({
         confirmPassword.length > 0 &&
         confirmPassword !== password;
 
+    const errorColor = "#ef4444"; // Standard accessible red for errors
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setConfirmTouched(true);
@@ -66,15 +68,15 @@ export default function E2EESignup({
         setLoading(true);
 
         try {
-           if(onSignup){
-               await onSignup({email, password, reservationId, username})
-           } else {
-               await register({email, password, reservationId});
-           }
+            if (onSignup) {
+                await onSignup({ email, password, reservationId, username });
+            } else {
+                await register({ email, password, reservationId });
+            }
             navigate("/signup/profile");
         } catch (err) {
             console.error("Signup error:", err);
-            setApiError(err.message ||"Something went wrong. Please try again.");
+            setApiError(err.message || "Something went wrong. Please try again.");
         } finally {
             setLoading(false);
         }
@@ -117,7 +119,7 @@ export default function E2EESignup({
             <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-5">
                 {apiError && (
                     <div
-                        style={{ color: COLORS.otherText, fontFamily: CAPTION_FONT }}
+                        style={{ color: errorColor, fontFamily: CAPTION_FONT }}
                         className="rounded border border-red-200 bg-red-50 p-3 text-xs"
                     >
                         {apiError}
@@ -151,7 +153,7 @@ export default function E2EESignup({
                             type="button"
                             onClick={() => setShowPassword((v) => !v)}
                             aria-label={showPassword ? "Hide password" : "Show password"}
-                            style={{ color: COLORS.midGray }}
+                            style={{ color: COLORS.ash }}
                             className="absolute right-3 top-1/2 -translate-y-1/2"
                         >
                             {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
@@ -177,7 +179,7 @@ export default function E2EESignup({
                             aria-label={
                                 showConfirmPassword ? "Hide password" : "Show password"
                             }
-                            style={{ color: COLORS.midGray }}
+                            style={{ color: COLORS.ash }}
                             className="absolute right-3 top-1/2 -translate-y-1/2"
                         >
                             {showConfirmPassword ? <EyeOff size={17} /> : <Eye size={17} />}
@@ -185,7 +187,7 @@ export default function E2EESignup({
                     </div>
                     {passwordsMismatch && (
                         <p
-                            style={{ color: COLORS.otherText, fontFamily: CAPTION_FONT }}
+                            style={{ color: errorColor, fontFamily: CAPTION_FONT }}
                             className="text-xs mt-1"
                         >
                             Passwords don't match.

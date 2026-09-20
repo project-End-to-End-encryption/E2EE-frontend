@@ -14,7 +14,6 @@ import {
     inputStyle,
 } from "../components/sidepanel";
 import {login} from "../service/authService.js";
-import {loginUser} from "../api/auth.api.js";
 
 export default function E2EELogin({
                                       onLogin,
@@ -101,7 +100,7 @@ export default function E2EELogin({
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="you@example.com"
-                        className="E2EE-login-input rounded px-4 py-3 text-sm transition-colors duration-150"
+                        className="e2ee-login-input rounded px-4 py-3 text-sm transition-colors duration-150"
                         style={inputStyle}
                         disabled={loading}
                     />
@@ -115,7 +114,7 @@ export default function E2EELogin({
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             placeholder="••••••••"
-                            className="E2EE-login-input w-full rounded px-4 py-3 pr-11 text-sm transition-colors duration-150"
+                            className="e2ee-login-input w-full rounded px-4 py-3 pr-11 text-sm transition-colors duration-150"
                             style={inputStyle}
                             disabled={loading}
                         />
