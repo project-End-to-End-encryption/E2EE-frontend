@@ -51,6 +51,7 @@ export async function drainEnvelopes() {
 
     return total;
 }
+
 export function registerMessageListeners(socket) {
 
     // A live transport envelope addressed to this device.
@@ -67,12 +68,24 @@ export function registerMessageListeners(socket) {
                 message
             });
         } catch (error) {
-            console.error('[messageSync] live envelope failed:', error);
+            // DEBUG: Decryption failed
+            console.error('[DECRYPT FAILED]', error);
         }
     });
 
     // Delivery / read receipts from other members.
-    socket.on(SOCKET_EVENTS.MESSAGE_RECEIPT, ({ conversationId, userId, type, seq }) => {
+    // type: 'delivered' or 'read'
+    socket.on(SOCKET_EVENTS.MESSAGE_RECEIPT, async ({ conversationId, userId, type, seq }) => {
+        // Update messages up to and including seq as delivered/read
+        await messageRepo.markAllStatus(conversationId, seq, type);
+
+        // Also update conversation's tracking seq
+        if (type === 'read') {
+            await conversationRepo.patch(conversationId, { lastReadSeq: seq });
+        } else if (type === 'delivered') {
+            await conversationRepo.patch(conversationId, { lastDeliveredSeq: seq });
+        }
+
         bus.emit(TOPICS.MESSAGE_UPDATED, { conversationId, userId, type, seq });
     });
 
@@ -87,7 +100,6 @@ export function registerMessageListeners(socket) {
     });
 }
 
-
 async function handleEnvelope(envelope, { queued }) {
     if (!envelope) return null;
 
@@ -98,9 +110,7 @@ async function handleEnvelope(envelope, { queued }) {
         case 'text':
             return toMessageRow(envelope, body, 'text');
 
-        // ---- v2 slots: already routed, just not implemented -----------------
         case 'voice':
-            // body = { kind, durationMs, storageKey, mediaKeyBase64, mimeType }
             return toMessageRow(envelope, body, 'audio');
 
         case 'image':
@@ -108,29 +118,20 @@ async function handleEnvelope(envelope, { queued }) {
         case 'file':
             return toMessageRow(envelope, body, body.kind);
 
-        // One message, zero or more attachments, optional caption. The media
-        // keys are inside `body.attachments[]` - they arrived sealed under the
-        // ratchet and are never persisted anywhere the server can reach.
         case 'media':
             return toMessageRow(envelope, body, 'media');
 
-        // Conversation-level events (archive key established, membership
-        // change). Stored so history stays contiguous; the UI filters them.
         case 'system':
             return toMessageRow(envelope, body, 'system');
 
         case 'callEvent':
-            // body = { kind, callId, action: 'missed'|'ended', durationMs }
             return toMessageRow(envelope, body, 'call');
 
-        // ---- control plane: not user-visible messages ------------------------
         case 'senderKeyDistribution':
             await handleSenderKeyDistribution(envelope, body);
             return null;
 
         case 'archiveKey':
-            // Someone handed us the wrapped CAK for a conversation we just
-            // joined, or a fresh one after a rekey.
             await archiveCrypto.acceptDistributedKey(envelope, body);
             return null;
 
@@ -142,16 +143,14 @@ async function handleEnvelope(envelope, { queued }) {
 
 function toMessageRow(envelope, body, contentType) {
     return {
-        // compound primary key
         conversationId: envelope.conversationId,
         seq: envelope.seq,
-
         messageId: envelope.messageId,
         clientMessageId: envelope.clientMessageId,
         senderId: envelope.from?.userId,
         senderDeviceId: envelope.from?.deviceId,
         contentType,
-        body,                       // the decrypted payload, kind and all
+        body,
         sentAt: body.sentAt ?? null,
         receivedAt: Date.now(),
         isRevoked: false,
@@ -179,7 +178,6 @@ async function updatePreview(message) {
     bus.emit(TOPICS.SIDEBAR_CHANGED, { conversationId: message.conversationId, mode: 'preview' });
 }
 
-/** One place to decide what a chat row shows under the name. */
 export function previewTextFor(message) {
     if (message.isRevoked) return 'This message was deleted';
     switch (message.contentType) {
@@ -195,8 +193,6 @@ export function previewTextFor(message) {
     }
 }
 
-
-/** "Photo", "3 attachments", or the caption if the sender wrote one. */
 function previewForAttachments(message) {
     const caption = message.body?.text?.trim();
     if (caption) return caption;
@@ -237,14 +233,12 @@ export async function findGaps(conversationId) {
     return gaps;
 }
 
-
 export async function backfill(conversationId, { maxRows = 300 } = {}) {
     const gaps = await findGaps(conversationId);
     if (!gaps.length) return 0;
 
     let fetched = 0;
 
-    // Newest gaps first: the user is looking at the bottom of the chat.
     for (const [from, to] of gaps.reverse()) {
         if (fetched >= maxRows) break;
 
@@ -267,7 +261,6 @@ export async function backfill(conversationId, { maxRows = 300 } = {}) {
     if (fetched) bus.emit(TOPICS.MESSAGE_ADDED, { conversationId, backfilled: fetched });
     return fetched;
 }
-
 
 export async function loadOlder(conversationId, { beforeSeq, limit = HISTORY_PAGE } = {}) {
     const local = await messageRepo.page(conversationId, { beforeSeq, limit });

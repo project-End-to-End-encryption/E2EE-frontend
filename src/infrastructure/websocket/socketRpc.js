@@ -25,7 +25,7 @@ export async function rpc(event, payload = {}, {timeout = DEFAULT_TIMEOUT_MS} = 
         socket.emit(event, payload, (ack) => {
             if(settled) return;
             settled = true;
-            clearTimeout(timeout);
+            clearTimeout(timer);
 
             if(!ack){
                 return reject(new RpcError('EMPTY_ACK', `Server acked "${event}" with nothing`));
@@ -48,14 +48,11 @@ export async function rpcWithRetry(event, payload, { attempts = 3, timeout } = {
             return await rpc(event, payload, { timeout });
         } catch (error) {
             lastError = error;
-
             const retryable = ['TIMEOUT', 'RATE_LIMIT', 'INTERNAL_ERROR', 'EMPTY_ACK'];
             if (!retryable.includes(error.code)) throw error;
-
             const waitMs = error.code === 'RATE_LIMIT' && error.retryAfter
                 ? error.retryAfter * 1000
                 : Math.min(1000 * 2 ** attempt, 8000);
-
             await new Promise((r) => setTimeout(r, waitMs));
         }
     }

@@ -74,6 +74,10 @@ export const SessionManager = {
                 envelop.usedOneTimePreKeyId ? await keyStorage
                     .getOneTimePreKey(envelop.usedOneTimePreKeyId) : null;
 
+            if (envelop.usedOneTimePreKeyId && !oneTimePreKeyPair) {
+                throw new Error('USED_ONE_TIME_PREKEY_NOT_FOUND');
+            }
+
             const {rootKey, ownRatchetKeyPair} = await x3dh.receiveSession(envelop, {
                 signedPreKeyPair: signedPreKeyPair.keyPair,
                 oneTimePreKeyPair: oneTimePreKeyPair?.keyPair
@@ -98,4 +102,3 @@ export const SessionManager = {
         return bufferToString(plaintextBytes);
     }
 }
-

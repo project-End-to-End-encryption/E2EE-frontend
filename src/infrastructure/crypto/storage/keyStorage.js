@@ -35,13 +35,11 @@ function openDb() {
 
         request.onsuccess = () => {
             const db = request.result;
-
             db.onclose = () => { if (dbInstance === db) dbInstance = null; };
             db.onversionchange = () => {
                 db.close();
                 if (dbInstance === db) dbInstance = null;
             };
-
             dbInstance = db;
             openingPromise = null;
             resolve(db);
@@ -70,12 +68,9 @@ function wrapRequest(request) {
 async function runTx(storeNames, mode, fn) {
     const db = await openDb();
     const transaction = db.transaction(storeNames, mode);
-
     const stores = {};
     for (const name of storeNames) stores[name] = transaction.objectStore(name);
-
     fn(stores);
-
     return new Promise((resolve, reject) => {
         transaction.oncomplete = () => resolve();
         transaction.onerror = () => reject(transaction.error);
@@ -118,7 +113,6 @@ export const keyStorage = {
         );
     },
 
-    // FIXED: single atomic transaction instead of Promise.all over loose requests
     async saveOneTimePreKeys(records) {
         return runTx([STORE_ONE_TIME_PREKEYS], 'readwrite', (s) => {
             for (const record of records) s[STORE_ONE_TIME_PREKEYS].put(record);
@@ -138,7 +132,6 @@ export const keyStorage = {
             s[STORE_ONE_TIME_PREKEYS].delete(keyId);
         });
     },
-
 
     async saveMasterBackupKey(cryptoKey) {
         return runTx([STORE_MASTER_KEY], 'readwrite', (s) => {

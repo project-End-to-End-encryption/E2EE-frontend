@@ -123,18 +123,59 @@ function MessageMeta({ message, isOwn }) {
 
     const colorClass = isOwn ? 'text-[var(--bubble-out-meta)]' : 'text-[var(--bubble-in-meta)]';
 
+    // Delivery/read state for outgoing messages
+    const isRead = isOwn && message.isRead === true;
+    const isDelivered = isOwn && (message.isDelivered === true || message.state === 'delivered');
+
     return (
         <span className={`float-right inline-flex items-center gap-1 mt-2 mb-[-3px] ml-3 font-medium text-[11px] leading-none [font-family:var(--font-body)] tabular-nums select-none ${colorClass}`}>
             {valid && <time dateTime={sentAt.toISOString()}>{time}</time>}
-            {isOwn && <StateIcon state={message.state} />}
+            {isOwn && (
+                <StateIcon
+                    state={message.state}
+                    isRead={isRead}
+                    isDelivered={isDelivered}
+                />
+            )}
         </span>
     );
 }
 
-function StateIcon({ state }) {
+/**
+ * StateIcon
+ *
+ * WhatsApp-style delivery ticks:
+ *   - Clock: sending (not yet acknowledged by server)
+ *   - Single check: sent (server acknowledged)
+ *   - Double check: delivered (reached recipient's device)
+ *   - Green double check: read (recipient opened the chat)
+ *
+ * The `isRead` and `isDelivered` flags come from the conversation's
+ * lastReadSeq/lastDeliveredSeq tracked in sidebarSync.
+ */
+function StateIcon({ state, isRead = false, isDelivered = false }) {
     const baseClass = "w-[14px] h-[14px]";
-    if (state === 'sending') return <Clock className={baseClass} aria-label="Sending" />;
-    if (state === 'failed') return <AlertCircle className={`${baseClass} text-[#ffd6d2]`} aria-label="Not sent" />;
-    if (state === 'read') return <CheckCheck className={`${baseClass} text-[var(--tick-read)]`} aria-label="Read" />;
-    return <Check className={baseClass} aria-label="Sent" />;
+
+    // Sending state - clock icon
+    if (state === 'sending') {
+        return <Clock className={baseClass} aria-label="Sending" />;
+    }
+
+    // Failed state - error icon
+    if (state === 'failed') {
+        return <AlertCircle className={`${baseClass} text-[var(--danger)]`} aria-label="Not sent" />;
+    }
+
+    // Read state - green double check (WhatsApp blue-green)
+    if (isRead) {
+        return <CheckCheck className={`${baseClass} text-[var(--tick-read)]`} aria-label="Read" />;
+    }
+
+    // Delivered state - double check (gray)
+    if (isDelivered) {
+        return <CheckCheck className={`${baseClass} text-[var(--bubble-out-meta)]`} aria-label="Delivered" />;
+    }
+
+    // Sent state - single check (gray)
+    return <Check className={`${baseClass} text-[var(--bubble-out-meta)]`} aria-label="Sent" />;
 }

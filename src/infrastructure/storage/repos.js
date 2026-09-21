@@ -165,6 +165,59 @@ export const messageRepo = {
         if (!existing) return;
         return put(STORES.MESSAGES, { ...existing, isRevoked: true, body: null, media: null });
     },
+
+    /**
+     * Update message delivery/read status
+     * @param {string} conversationId
+     * @param {number} seq - message sequence number
+     * @param {'delivered'|'read'} status
+     */
+    async markStatus(conversationId, seq, status) {
+        const existing = await this.get(conversationId, seq);
+        if (!existing) return;
+        return put(STORES.MESSAGES, {
+            ...existing,
+            isDelivered: status === 'delivered' || status === 'read' ? true : existing.isDelivered,
+            isRead: status === 'read' ? true : existing.isRead
+        });
+    },
+
+    /**
+     * Mark all messages up to and including seq as read/delivered
+     * @param {string} conversationId
+     * @param {number} seq - up to this seq (inclusive)
+     * @param {'delivered'|'read'} status
+     */
+    async markAllStatus(conversationId, seq, status) {
+        const db = await openDb();
+        const transaction = db.transaction(STORES.MESSAGES, 'readwrite');
+        const store = transaction.objectStore(STORES.MESSAGES);
+        const range = IDBKeyRange.bound([conversationId, -Infinity], [conversationId, seq]);
+
+        return new Promise((resolve, reject) => {
+            const request = store.openCursor(range);
+            request.onsuccess = () => {
+                const cursor = request.result;
+                if (!cursor) {
+                    transaction.oncomplete = resolve;
+                    transaction.onerror = () => reject(transaction.error);
+                    return;
+                }
+                const message = cursor.value;
+                // Only update outgoing messages (our own messages)
+                if (message.isOutgoing) {
+                    const updatedMessage = {
+                        ...message,
+                        isDelivered: status === 'delivered' || status === 'read' ? true : message.isDelivered,
+                        isRead: status === 'read' ? true : message.isRead
+                    };
+                    cursor.update(updatedMessage);
+                }
+                cursor.continue();
+            };
+            request.onerror = () => reject(request.error);
+        });
+    },
     async clearBefore(conversationId, seq) {
         const db = await openDb();
         const transaction = db.transaction(STORES.MESSAGES, 'readwrite');
