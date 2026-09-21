@@ -1,24 +1,11 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Users, User } from 'lucide-react';
+import { mediaService } from '../../features/media/mediaService.js';
 
-/**
- * Avatar
- *
- * A photo when there is one, otherwise the person's initials on a colour that
- * is always the same for the same name - so "Rehan" is the same blue in the
- * sidebar, the header and the message thread without anything storing it.
- *
- * Every gradient below keeps white text at 4.5:1 or better.
- *
- * Styles live in features/chats/styles/chat.css (.ec-avatar).
- */
 const PALETTES = [
-    ['#2b5ce6', '#1a3fbf'],   // sapphire
-    ['#5b3fd6', '#3f27a8'],   // indigo
-    ['#0a7a96', '#075c73'],   // teal
-    ['#7a3fc9', '#5a2a9c'],   // violet
-    ['#1b64c9', '#0f4a9e'],   // cobalt
-    ['#0f766e', '#0b5650']    // pine
+    ['#2b5ce6', '#1a3fbf'], ['#5b3fd6', '#3f27a8'],
+    ['#0a7a96', '#075c73'], ['#7a3fc9', '#5a2a9c'],
+    ['#1b64c9', '#0f4a9e'], ['#0f766e', '#0b5650']
 ];
 
 const hash = (value) => {
@@ -34,22 +21,49 @@ export const initialsOf = (name = '') => {
     return (words[0][0] + words[words.length - 1][0]).toUpperCase();
 };
 
-export default function Avatar({ name = '', seed, src = null, size = 46, group = false, className = '', children }) {
+export default function Avatar({ name = '', seed, src = null, profilePictureKey = null, size = 46, group = false, className = '', children }) {
     const [a1, a2] = PALETTES[hash(String(seed ?? name)) % PALETTES.length];
+    const [imageUrl, setImageUrl] = useState(src);
+
+    useEffect(() => {
+        let cancelled = false;
+        if (profilePictureKey && !src) {
+            mediaService.getProfilePictureUrl(profilePictureKey)
+                .then((url) => { if (!cancelled) setImageUrl(url); })
+                .catch(() => { if (!cancelled) setImageUrl(null); });
+        } else if (src) {
+            setImageUrl(src);
+        }
+        return () => { cancelled = true; };
+    }, [profilePictureKey, src]);
 
     return (
         <span
-            className={`ec-avatar ${group ? 'is-group' : ''} ${className}`}
-            style={{ '--size': `${size}px`, '--a1': a1, '--a2': a2 }}
+            className={`ec-avatar shrink-0 inline-flex items-center justify-center rounded-full relative overflow-hidden ${group ? 'is-group' : ''} ${className}`}
+            style={{
+                width: size,
+                height: size,
+                minWidth: size,
+                minHeight: size,
+                background: `linear-gradient(135deg, ${a1}, ${a2})`,
+                color: '#fff',
+                '--size': `${size}px`
+            }}
             aria-hidden="true"
         >
-            {group
-                ? <Users />
-                : src
-                    ? <img src={src} alt="" />
-                    : String(name).trim()
-                        ? initialsOf(name)
-                        : <User />}
+            {group ? (
+                <Users size={size * 0.5} />
+            ) : imageUrl ? (
+                <img
+                    src={imageUrl}
+                    alt=""
+                    style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
+                />
+            ) : (
+                <span style={{ fontSize: size * 0.4, fontWeight: 500 }}>
+                    {String(name).trim() ? initialsOf(name) : <User size={size * 0.5} />}
+                </span>
+            )}
             {children}
         </span>
     );

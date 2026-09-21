@@ -97,6 +97,13 @@ export const mediaService = {
         }
     },
 
+    async getProfilePictureUrl(profilePictureKey) {
+        try {
+            const ack = await rpc(SOCKET_EVENTS.USERS_GET_PROFILE_PICTURE_URL, { profilePictureKey });
+            return ack.url ?? null;
+        } catch { return null; }
+    },
+
     async abortUpload(conversationId, attachmentId) {
         try {
             await rpc(SOCKET_EVENTS.MEDIA_ABORT_UPLOAD, { conversationId, attachmentId });
