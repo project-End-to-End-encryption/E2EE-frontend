@@ -31,7 +31,7 @@ import { GroupSessionManager } from '../group/GroupSessionManager.js';
  * server rejects a duplicate epoch) and the archive still has a valid key.
  */
 
-const normaliseRow = (conversation) => ({
+export const normaliseRow = (conversation) => ({
     _id: String(conversation._id),
     type: conversation.type,
     name: conversation.name ?? null,
