@@ -80,6 +80,10 @@ export const conversationService = {
      */
     async openDirect(peerUserId) {
         if (!peerUserId) throw new Error('peerUserId required');
+        const selfId = safeSelfId();
+        if (selfId && String(peerUserId) === String(selfId)) {
+            throw new Error('Cannot open a chat with yourself');
+        }
 
         const existing = await findLocalDirect(peerUserId);
         if (existing) {

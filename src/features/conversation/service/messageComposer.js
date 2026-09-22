@@ -60,6 +60,10 @@ async function deliver({conversation, clientMessageId, fullBody, contentType, se
 
     const { devices } = await rpc(SOCKET_EVENTS.CONVERSATION_MEMBER_DEVICES, { conversationId, includeOwnOtherDevices: true });
 
+    if (!devices?.length) {
+        throw new Error('No recipient devices in this conversation');
+    }
+
     const plaintext = JSON.stringify(fullBody);
     const envelopes = [];
 
