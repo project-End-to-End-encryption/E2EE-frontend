@@ -8,7 +8,7 @@ import { mbkStore } from '../features/recovery/mbkStore.js';
 import { generateAndRegisterKeys } from '../features/auth/service/keyBundle.js';
 import { metaRepo, META_KEYS } from '../infrastructure/storage/repos.js';
 import { clearCache } from '../infrastructure/storage/db.js';
-
+import { registerGroupMembershipListeners, resetGroupMembershipSync } from '../features/conversation/group/groupMembershipSync.js';
 // import { callSignaling } from '../features/calls/callSignaling.js';   // v2
 
 
@@ -34,6 +34,7 @@ export async function bootstrapSession({ isNewDevice = false } = {}) {
     // That is a permanently lost message and it only shows up under load.
     sidebarSync.registerSidebarListeners(socket);
     messageSync.registerMessageListeners(socket);
+    registerGroupMembershipListeners(socket);
     // callSignaling.register(socket);          // v2: one line, nothing else changes
 
     registerConnectionLifecycle(socket);
@@ -116,6 +117,7 @@ export async function teardownSession() {
     await mbkStore.clear({ persistent: true });
     bus.clear();
     await clearCache();
+    resetGroupMembershipSync();
     webSocketClient.getSocket()?.disconnect();
 }
 

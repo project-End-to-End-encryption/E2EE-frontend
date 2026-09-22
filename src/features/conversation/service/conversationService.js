@@ -7,7 +7,7 @@ import { archiveCrypto } from './archiveCrypto.js';
 import { SessionManager } from './session/SessionManager.js';
 import { bufferToBase64 } from '../../../shared/utils/encoding.js';
 import { ERROR_CODES } from '../../../shared/constants/errorCodes.js';
-
+import { GroupSessionManager } from '../group/GroupSessionManager.js';
 /**
  * CONVERSATION SERVICE
  *
@@ -38,6 +38,7 @@ const normaliseRow = (conversation) => ({
     avatarKey: conversation.avatarKey ?? null,
     createdBy: conversation.createdBy,
     memberIds: (conversation.memberIds ?? []).map(String),
+    members: (conversation.members ?? []).map((m) => ({ userId: String(m.userId), role: m.role })),
     lastSeq: conversation.lastSeq ?? 0,
     lastMessageAt: conversation.lastMessageAt ?? null,
     keyEpoch: conversation.keyEpoch ?? 1,
@@ -201,6 +202,49 @@ export const conversationService = {
         });
 
         return envelopes.length;
+    },
+
+    async createGroup(name, memberUserIds, avatarKey) {
+        if (!name || !name.trim()) throw new Error('Group name required');
+        if (!memberUserIds || !Array.isArray(memberUserIds) || memberUserIds.length === 0) {
+            throw new Error('At least one member is required for a group');
+        }
+
+        const ack = await rpc(SOCKET_EVENTS.CONVERSATION_CREATE_GROUP, { name, memberUserIds, avatarKey });
+        const row = normaliseRow(ack.conversation);
+
+        await conversationRepo.applySync({ conversations: [row] });
+        bus.emit(TOPICS.SIDEBAR_CHANGED, { conversationId: row._id, mode: 'opened' });
+
+        const keyState = await this.ensureArchiveKey(row);
+        const { devices } = await rpc(SOCKET_EVENTS.CONVERSATION_MEMBER_DEVICES, {
+                   conversationId: row._id, includeOwnOtherDevices: true
+           });
+           await GroupSessionManager.distributeSenderKey({ conversationId: row._id, memberDevices: devices });
+
+        return { conversationId: row._id, created: true, keyState };
+    },
+    async addMember(conversationId, newUserId) {
+        const ack = await rpc(SOCKET_EVENTS.CONVERSATION_ADD_MEMBER, { conversationId, newUserId });
+        const row = normaliseRow(ack.conversation);
+        await conversationRepo.applySync({ conversations: [row] });
+        bus.emit(TOPICS.SIDEBAR_CHANGED, { conversationId: row._id, mode: 'updated' });
+        return row;
+    },
+
+    async removeMember(conversationId, targetUserId) {
+        const ack = await rpc(SOCKET_EVENTS.CONVERSATION_REMOVE_MEMBER, { conversationId, targetUserId });
+        const row = normaliseRow(ack.conversation);
+        await conversationRepo.applySync({ conversations: [row] });
+        bus.emit(TOPICS.SIDEBAR_CHANGED, { conversationId: row._id, mode: 'updated' });
+        return row;
+    },
+
+    /** Re-hand the CAK I already hold for `epoch` to everyone — cheap no-op for existing members, necessary for a newcomer. */
+    async pushArchiveKey(conversationId, epoch) {
+        const cached = await archiveKeyRepo.get(conversationId, epoch);
+        if (!cached?.key) return 0;
+        return this.distributeArchiveKey(conversationId, epoch, cached.key);
     },
 
     list: (options) => conversationRepo.list(options),

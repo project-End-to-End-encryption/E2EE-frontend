@@ -176,8 +176,17 @@ class WebCryptoProvider extends ICryptoProvider{
             ['decrypt']
         );
 
+        let formattedAad = aad;
+        if (typeof aad === 'string') {
+            formattedAad = base64ToBuffer(aad);
+        }
+
         return crypto.subtle.decrypt(
-            {name: 'AES-GCM', iv: new Uint8Array(base64ToBuffer(ivBase64)), additionalData: aad},
+            {
+                name: 'AES-GCM',
+                iv: new Uint8Array(base64ToBuffer(ivBase64)),
+                ...(formattedAad && { additionalData: formattedAad })
+            },
             key,
             base64ToBuffer(ciphertextBase64)
         );

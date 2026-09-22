@@ -6,6 +6,7 @@ import SearchBar from './SearchBar.jsx';
 import ConversationList from '../conversation/ConversationList.jsx';
 import UserSearchResults from '../conversation/UserSearchResults.jsx';
 import { messageFor } from '../../../../shared/constants/errorCodes.js';
+import CreateGroupModal from '../conversation/CreateGroupModal.jsx';
 
 const FILTERS = [
     { id: 'all', label: 'All' },
@@ -42,6 +43,7 @@ export default function AppSidebar({
     const [settingsView, setSettingsView] = useState('main');
     const [openingUserId, setOpeningUserId] = useState(null);
     const [openError, setOpenError] = useState(null);
+    const [showCreateGroupModal, setShowCreateGroupModal] = useState(false); // New state for CreateGroupModal
 
     const { conversations, loading, openDirectWith } = useConversations();
     const search = useUserSearch(query, { enabled: activeTab === 'chat' });
@@ -125,6 +127,16 @@ export default function AppSidebar({
 
                 <SearchBar value={query} onChange={setQuery} isSearching={search.isSearching} />
 
+                <div className="px-5 py-2"> {/* New Group button container */}
+                    <button
+                        type="button"
+                        onClick={() => setShowCreateGroupModal(true)}
+                        className="w-full inline-flex items-center justify-center px-4 py-2 border-0 rounded-full font-semibold text-[15px] leading-none [font-family:var(--font-body)] whitespace-nowrap transition-colors duration-150 select-none bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]"
+                    >
+                        + New Group
+                    </button>
+                </div>
+
                 {!searching && conversations.length > 0 && (
                     <div className="flex items-center gap-1.5 px-4 py-2 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden" role="group" aria-label="Filter conversations">
                         {FILTERS.map(({ id, label }) => (
@@ -175,6 +187,15 @@ export default function AppSidebar({
                     onSelect={onSelectConversation}
                 />
             </aside>
+            {/* CreateGroupModal will be rendered here */}
+            <CreateGroupModal
+                            isOpen={showCreateGroupModal}
+                            onClose={() => setShowCreateGroupModal(false)}
+                            onCreated={(conversationId) => {
+                                setShowCreateGroupModal(false);
+                                onSelectConversation(conversationId);
+                            }}
+                        />
         </>
     );
 }
