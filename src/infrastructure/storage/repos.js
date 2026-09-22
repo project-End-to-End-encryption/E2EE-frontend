@@ -58,6 +58,21 @@ export const conversationRepo = {
             void transaction;
         });
     },
+    async applyIncoming(conversationId, { seq, sentAt, countsAsUnread }) {
+        return tx([STORES.CONVERSATIONS], 'readwrite', (stores) => {
+            const store = stores[STORES.CONVERSATIONS];
+            const request = store.get(conversationId);
+            request.onsuccess = () => {
+                const row = request.result;
+                if (!row) return;                          // not synced yet
+                const next = { ...row, lastSeq: seq, lastMessageAt: sentAt };
+                if (countsAsUnread && seq > (row.lastReadSeq ?? 0)) {
+                    next.unreadCount = (row.unreadCount ?? 0) + 1;
+                }
+                store.put(next);
+            };
+        });
+    },
     async list({ includeArchived = false } = {}) {
         const rows = await getAll(STORES.CONVERSATIONS);
 

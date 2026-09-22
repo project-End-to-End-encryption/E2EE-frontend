@@ -80,9 +80,7 @@ export function registerMessageListeners(socket) {
         await messageRepo.markAllStatus(conversationId, seq, type);
 
         // Also update conversation's tracking seq
-        if (type === 'read') {
-            await conversationRepo.patch(conversationId, { lastReadSeq: seq });
-        } else if (type === 'delivered') {
+        if (type === 'delivered') {
             await conversationRepo.patch(conversationId, { lastDeliveredSeq: seq });
         }
 

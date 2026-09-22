@@ -2,6 +2,7 @@ import {rpc, rpcWithRetry} from "../../infrastructure/websocket/socketRpc.js";
 import {SOCKET_EVENTS} from "../../shared/constants/socketEvents.js";
 import {conversationRepo, metaRepo, META_KEYS} from "../../infrastructure/storage/repos.js";
 import {bus, TOPICS} from "../../infrastructure/websocket/eventBus.js";
+import { authStore } from "../auth/storage/authStore.js";
 
 export const SIDEBAR_SCHEMA_VERSION = 1;
 
@@ -114,11 +115,11 @@ export function registerSidebarListeners(socket) {
         await run();
     });
 
-    socket.on(SOCKET_EVENTS.MESSAGE_NEW, async ({ conversationId, seq, sentAt }) => {
-        await conversationRepo.patch(conversationId, {
-            lastSeq: seq,
-            lastMessageAt: sentAt
-        });
+    socket.on(SOCKET_EVENTS.MESSAGE_NEW, async ({ conversationId, seq, sentAt, senderId, contentType }) => {
+        const countsAsUnread =
+            String(senderId) !== String(safeSelfId()) && contentType !== 'system';
+
+        await conversationRepo.applyIncoming(conversationId, { seq, sentAt, countsAsUnread });
         bus.emit(TOPICS.SIDEBAR_CHANGED, { conversationId, mode: 'messageNew' });
     });
 }
@@ -163,6 +164,11 @@ export async function markRead(conversationId, seq) {
         // overwrites our optimistic one. Nothing to repair by hand.
         console.debug('[sidebarSync] read receipt deferred:', error.code);
     }
+}
+
+function safeSelfId() {
+    try { return authStore.getUserId(); }   // throws when logged out
+    catch { return null; }
 }
 
 export const sidebarSync = { run, registerSidebarListeners, markRead, SIDEBAR_SCHEMA_VERSION };
