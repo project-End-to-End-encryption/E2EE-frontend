@@ -75,9 +75,8 @@ export default function MessageBubble({
     const meta = <MessageMeta message={message} isOwn={isOwn} />;
 
     const bubbleTheme = isOwn
-        ? 'bg-[linear-gradient(160deg,var(--bubble-out-a),var(--bubble-out-b))] text-[var(--bubble-out-ink)]'
-        : 'bg-[var(--bubble-in)] text-[var(--bubble-in-ink)]';
-
+     ? 'bg-[#9cc9f5] text-[#12324a]'  
+    : 'bg-white text-[#1f2937]';
     return (
         <div className={rowClass}>
             {lead}

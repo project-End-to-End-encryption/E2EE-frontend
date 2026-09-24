@@ -54,50 +54,20 @@
     --shadow-bubble: 0 1px 0.5px rgba(0, 0, 0, 0.13);
     --shadow-float: 0 6px 12px -4px rgba(0, 0, 0, 0.15);
 
-    /* Welcome Screen Wallpaper */
-    --wall-wash: rgba(239, 234, 226, 0.92);
-    --wall-image: none;
+   /* Welcome / Front Screen (Jab koi chat select NA ho) */
+    --wall-image: url('/Frontlight.png');
 
-    /* Call overlay */
-    --call-overlay-bg: rgba(0, 0, 0, 0.88);
-    --call-button: rgba(255, 255, 255, 0.12);
+    /* Active Chat Screen (Jab Chat Open ho) */
+    --chat-wall-image: url('/Light.png');
 }
 
-/* Dark theme overrides */
+
 [data-theme="dark"] {
-    --canvas: #0b141a;
-    --surface: #111b21;
-    --surface-2: #1f2c34;
-    --surface-3: #222e36;
-    --glass-strong: rgba(17, 27, 33, 0.85);
+    /* Welcome / Front Screen Dark */
+    --wall-image: url('/Frontdark.png');
 
-    --ink: #d1d7db;
-    --ink-2: #8696a0;
-    --ink-3: #667781;
-
-    --line: #222e36;
-    --line-soft: #1f2c34;
-
-    --accent: #00a884;
-    --accent-text: #53bdc1;
-    --accent-soft: #1a3a32;
-    --focus: #53bdc1;
-
-    --danger: #ea0038;
-    --danger-soft: rgba(234, 0, 56, 0.15);
-
-    --bubble-out-a: #063c2e;
-    --bubble-out-b: #0b5c3b;
-    --bubble-out-ink: #d1d7db;
-    --bubble-out-meta: #53bdc1;
-
-    --bubble-in-a: #222e36;
-    --bubble-in-b: #1f2c34;
-    --bubble-in-ink: #d1d7db;
-    --bubble-in-meta: #8696a0;
-
-    --ok: #53bdc1;
-    --wall-wash: rgba(11, 20, 26, 0.94);
+    /* Active Chat Screen Dark */
+    --chat-wall-image: url('/Dark.png');
 
     /* WhatsApp tick colors - same blue-green in dark mode */
     --tick-read: #53bdeb;
@@ -140,15 +110,24 @@
 }
 
 /* ==========================================================================
-   WhatsApp Chat Window Background
+   WhatsApp Chat Window & Welcome Screen Background Fix
    ========================================================================== */
 
-[data-view="chat"] .ec-root main {
-    background-image: url('https://web.whatsapp.com/img/bg-chat-tile-light_a4be512e');
+/* 1. Default Background (Jab Chat Open Na Ho -> Frontlight.png / Frontdark.png) */
+.ec-root main {
+    background-image: var(--wall-image) !important;
+    background-size: cover !important;
+    background-position: center !important;
+    background-repeat: no-repeat !important;
 }
-
-[data-theme="dark"][data-view="chat"] .ec-root main {
-    background-image: url('https://web.whatsapp.com/img/bg-chat-tile-dark_7c6949b4');
+/* 2. Active Chat Background (Jab Chat Open Ho / Composer Dikh Raha Ho -> Light.png / Dark.png) */
+.ec-root main:has(.ec-composer),
+.ec-root [data-view="chat"] main,
+.ec-root main.chat-open {
+    background-image: var(--chat-wall-image) !important;
+    background-size: cover !important;
+    background-position: center !important;
+    background-repeat: no-repeat !important;
 }
 
 /* ==========================================================================
