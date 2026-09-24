@@ -31,6 +31,7 @@ export async function drainEnvelopes() {
             try {
                 const message = await handleEnvelope(row.envelop ?? row.envelope, { queued: true });
                 if (message) decrypted.push(message);
+                // Only ACK when handleEnvelope succeeds
                 storedIds.push(row._id);
             } catch (error) {
                 // Do NOT ack. Leave it queued; the TTL will eventually clear it

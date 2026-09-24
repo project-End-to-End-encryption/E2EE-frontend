@@ -3,6 +3,7 @@ import { SOCKET_EVENTS } from '../../../shared/constants/socketEvents.js';
 import {archiveKeyRepo, metaRepo, META_KEYS, conversationRepo} from '../../../infrastructure/storage/repos.js';
 import {bufferToBase64, base64ToBuffer, stringToBuffer, bufferToString} from '../../../shared/utils/encoding.js';
 import { mbkStore } from '../../recovery/mbkStore.js';
+import { ERROR_CODES } from '../../../shared/constants/errorCodes.js';
 
 
 const AES_ALG = 'AES-GCM';
@@ -208,7 +209,22 @@ export const archiveCrypto = {
         }
 
         if (!ack?.key) {
-            throw new Error(`NO_ARCHIVE_KEY:${normalizedConversationId}:${normalizedEpoch}`);
+            console.error('[CAK] SERVER RETURNED NO KEY', {
+                conversationId: normalizedConversationId,
+                epoch: normalizedEpoch,
+                ack
+        });
+
+            console.groupEnd();
+
+            const err = new Error(`NO_ARCHIVE_KEY:${normalizedConversationId}:${normalizedEpoch}`);
+            err.code = ERROR_CODES.NO_ARCHIVE_KEY;
+            throw err;
+        }
+
+        if (Number(ack.key.epoch) !== normalizedEpoch) {
+            console.groupEnd();
+            throw new Error(`ARCHIVE_KEY_EPOCH_MISMATCH:${normalizedEpoch}:${ack.key.epoch}`);
         }
 
         let keyBytes;
@@ -251,6 +267,23 @@ export const archiveCrypto = {
         return key;
     },
 
+    async createKey(conversationId, epoch = 1) {
+        const bytes = randomBytes(32);
+        try {
+            // Explicit 'mint' so the server runs the atomic claim-epoch race guard
+            // instead of silently defaulting to 'copy'.
+            await this.wrapAndUpload(conversationId, epoch, bytes, { mode: 'mint' });
+
+            const key = await importCak(bytes);
+            await archiveKeyRepo.put({ conversationId, epoch, key });
+
+            return { key, bytes };
+        } catch (error) {
+            bytes.fill(0);
+            throw error;
+        }
+    },
+
     async unwrapToKey(keyRow) {
         let mbk;
         try {
@@ -286,49 +319,26 @@ export const archiveCrypto = {
         return bytes;
     },
 
-    async createKey(conversationId, epoch = 1) {
-        const bytes = randomBytes(32);
-
-        try {
-            await this.wrapAndUpload(conversationId, epoch, bytes);
-
-            const key = await importCak(bytes);
-
-            await archiveKeyRepo.put({conversationId, epoch, key});
-
-            return {key, bytes};
-
-        } catch (error) {
-            bytes.fill(0);
-            throw error;
-        }
-    },
-
-    async wrapAndUpload(conversationId, epoch, cakBytes, {mode = 'copy'}) {
+    async wrapAndUpload(conversationId, epoch, cakBytes, { mode = 'copy' } = {}) {
         let mbk;
-
         try {
             mbk = await mbkStore.require();
-
         } catch (error) {
             throw error;
         }
 
         let sealed;
-
         try {
             sealed = await seal(mbk, cakBytes, cakAad(conversationId, epoch));
         } catch (error) {
             throw error;
         }
 
-        const blobGeneration =
-            await metaRepo.get('vault.generation', 1);
-
+        const blobGeneration = await metaRepo.get('vault.generation', 1);
         const payload = { conversationId, epoch, iv: sealed.iv, ciphertext: sealed.ciphertext, blobGeneration, mode };
 
         try {
-            const ack = await rpc(SOCKET_EVENTS.CONVERSATION_PUT_KEY, payload);
+            await rpc(SOCKET_EVENTS.CONVERSATION_PUT_KEY, payload);
         } catch (error) {
             throw error;
         }

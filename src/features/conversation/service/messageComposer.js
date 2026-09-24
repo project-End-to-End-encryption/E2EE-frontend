@@ -7,6 +7,8 @@ import {bus, TOPICS} from "../../../infrastructure/websocket/eventBus.js";
 import {authStore} from "../../auth/storage/authStore.js";
 import {getDeviceId} from "../../../shared/utils/deviceId.js";
 import {messageSync} from "../../sync/messageSync.js";
+import conversationService from "./conversationService.js";
+import {ERROR_CODES} from "../../../shared/constants/errorCodes.js";
 
 const uuid = () => crypto.randomUUID();
 
@@ -56,7 +58,20 @@ export async function send(conversationId, body, contentType = 'text', {attachme
 async function deliver({conversation, clientMessageId, fullBody, contentType, sentAt, attachments = []}){
     const conversationId = conversation._id;
     const epoch = conversation.keyEpoch ?? 1;
-    const archive = await archiveCrypto.encryptArchive(conversationId, epoch, fullBody);
+    let archive;
+
+    try {
+        archive = await archiveCrypto.encryptArchive(conversationId, epoch, fullBody);
+    } catch (error) {
+        if (error?.code === ERROR_CODES.NO_ARCHIVE_KEY) {
+            // Mint was lost (e.g. an earlier crash before CONVERSATION_PUT_KEY
+            // ever fired). Self-heal: mint/fetch the key, then retry once.
+            await conversationService.ensureArchiveKey(conversation);
+            archive = await archiveCrypto.encryptArchive(conversationId, epoch, fullBody);
+        } else {
+            throw error;
+        }
+    }
 
     const { devices } = await rpc(SOCKET_EVENTS.CONVERSATION_MEMBER_DEVICES, { conversationId, includeOwnOtherDevices: true });
 
