@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Navigate, Outlet } from "react-router-dom";
 import { Loader2 } from "lucide-react";
-import { COLORS } from "../features/auth/components/sidepanel.jsx";
+import { COLORS } from "../shared/constants/theme.js";
 import { refreshAccessToken } from "../infrastructure/http/tokenRefresh.js";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
