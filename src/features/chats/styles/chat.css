@@ -63,15 +63,38 @@
 
 
 [data-theme="dark"] {
-    /* Welcome / Front Screen Dark */
+    /* Welcome / Active Screen Backgrounds */
     --wall-image: url('/Frontdark.png');
-
-    /* Active Chat Screen Dark */
     --chat-wall-image: url('/Dark.png');
 
-    /* WhatsApp tick colors - same blue-green in dark mode */
+    /* WhatsApp Dark Theme Colors */
+    --canvas: #0b141a;
+    --surface: #111b21;       /* Sidebar background */
+    --surface-2: #202c33;     /* Hover states */
+    --surface-3: #2a3942;
+    --glass-strong: rgba(17, 27, 33, 0.85);
+
+    --ink: #e9edef;           /* Primary text */
+    --ink-2: #8696a0;         /* Secondary text */
+    --ink-3: #667781;         /* Muted text */
+
+    --line: #222d34;          /* Borders */
+    --line-soft: #202c33;
+
+    /* WhatsApp Dark Bubble Colors (Optional but recommended if you use them) */
+    --bubble-out-a: #005c4b;
+    --bubble-out-b: #005c4b;
+    --bubble-out-ink: #e9edef;
+    --bubble-out-meta: #8696a0;
+
+    --bubble-in-a: #202c33;
+    --bubble-in-b: #202c33;
+    --bubble-in-ink: #e9edef;
+    --bubble-in-meta: #8696a0;
+
+    /* WhatsApp tick colors */
     --tick-read: #53bdeb;
-    --tick-delivered: var(--bubble-out-meta);
+    --tick-delivered: #8696a0;
 }
 
 /* ==========================================================================

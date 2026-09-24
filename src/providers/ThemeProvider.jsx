@@ -35,6 +35,7 @@ export default function ThemeProvider({ children }) {
         } catch {
             /* ignore */
         }
+        document.documentElement.setAttribute('data-theme', theme);
     }, [theme]);
 
     const toggleTheme = useCallback(() => {
