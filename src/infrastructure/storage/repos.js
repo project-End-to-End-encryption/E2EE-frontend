@@ -250,6 +250,24 @@ export const messageRepo = {
             transaction.oncomplete = resolve;
             transaction.onerror = () => reject(transaction.error);
         });
+    },
+    async deleteUndecryptable(conversationId) {
+        const db = await openDb();
+        const transaction = db.transaction(STORES.MESSAGES, 'readwrite');
+        const store = transaction.objectStore(STORES.MESSAGES);
+        const range = IDBKeyRange.bound([conversationId, -Infinity], [conversationId, Infinity]);
+
+        return new Promise((resolve, reject) => {
+            const request = store.openCursor(range);
+            request.onsuccess = () => {
+                const cursor = request.result;
+                if (!cursor) return;                       // done; oncomplete resolves below
+                if (cursor.value.undecryptable) cursor.delete();
+                cursor.continue();
+            };
+            transaction.oncomplete = () => resolve();
+            transaction.onerror = () => reject(transaction.error);
+        });
     }
 };
 

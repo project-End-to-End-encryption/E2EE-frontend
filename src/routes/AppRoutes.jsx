@@ -15,31 +15,59 @@ import RestoreKeysPage from "../features/recovery/pages/Restorekeyspage.jsx";
 
 import RequireDeviceKeys from "./RequireDeviceKeys.jsx";
 import AuthGuard from "./AuthGuard.jsx";
+import PublicGuard from "./PublicGuard.jsx";
 
 export default function AppRoutes() {
     return (
         <Routes>
-            {/* Public Routes */}
+
+            {/* Public homepage */}
             <Route path="/" element={<Homepage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/signup/username" element={<CheckUserName />} />
-            <Route path="/signup/details" element={<SignupPage />} />
 
-            {/* Authenticated Routes */}
-            <Route element={<AuthGuard />}>
-                {/* Sign-up flow */}
-                <Route path="/signup/profile" element={<ProfileSetup />} />
-                <Route path="/signup/keys" element={<KeysSetupPage />} />
-
-                {/* Recovery flow */}
-                <Route path="/restore" element={<RestoreKeysPage />} />
-
-                {/* Device-key protected pages */}
-                <Route element={<RequireDeviceKeys />}>
-                    <Route path="/chat" element={<ChatPage />} />
-                    <Route path="/keys" element={<KeysPage />} />
-                </Route>
+            {/* Public auth pages
+                If refresh token is valid -> /chat
+            */}
+            <Route element={<PublicGuard />}>
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/signup/username" element={<CheckUserName />} />
+                <Route path="/signup/details" element={<SignupPage />} />
             </Route>
+
+            {/* Authenticated routes */}
+            <Route element={<AuthGuard />}>
+
+                {/* Signup flow */}
+                <Route
+                    path="/signup/profile"
+                    element={<ProfileSetup />}
+                />
+
+                <Route
+                    path="/signup/keys"
+                    element={<KeysSetupPage />}
+                />
+
+                {/* Recovery */}
+                <Route
+                    path="/restore"
+                    element={<RestoreKeysPage />}
+                />
+
+                {/* Device-key protected */}
+                <Route element={<RequireDeviceKeys />}>
+                    <Route
+                        path="/chat"
+                        element={<ChatPage />}
+                    />
+
+                    <Route
+                        path="/keys"
+                        element={<KeysPage />}
+                    />
+                </Route>
+
+            </Route>
+
         </Routes>
     );
 }

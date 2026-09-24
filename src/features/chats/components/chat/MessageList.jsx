@@ -34,33 +34,64 @@ function layout(messages, isOwnFn) {
     const items = [];
     let lastDay = null;
 
-    messages.forEach((message, index) => {
+    const orderedMessages = [...messages].sort((a, b) => {
+        const ta = toDate(a.sentAt)?.getTime() ?? 0;
+        const tb = toDate(b.sentAt)?.getTime() ?? 0;
+
+        if (ta !== tb) return ta - tb;
+
+        return Number(a.seq ?? 0) - Number(b.seq ?? 0);
+    });
+
+    const joins = (a, b) => {
+        if (!a || !b) return false;
+
+        const ta = toDate(a.sentAt);
+        const tb = toDate(b.sentAt);
+
+        if (!ta || !tb || ta.toDateString() !== tb.toDateString()) {
+            return false;
+        }
+
+        if (isOwnFn(a) !== isOwnFn(b)) return false;
+
+        if (
+            !isOwnFn(a) &&
+            String(a.senderId) !== String(b.senderId)
+        ) {
+            return false;
+        }
+
+        return Math.abs(tb - ta) <= CLUSTER_GAP_MS;
+    };
+
+    orderedMessages.forEach((message, index) => {
         const sentAt = toDate(message.sentAt);
         const day = sentAt ? sentAt.toDateString() : null;
 
         if (day && day !== lastDay) {
-            items.push({ type: 'day', key: `day:${day}`, label: dayLabel(sentAt) });
+            items.push({
+                type: 'day',
+                key: `day:${day}`,
+                label: dayLabel(sentAt)
+            });
+
             lastDay = day;
         }
-
-        const own = isOwnFn(message);
-        const joins = (a, b) => {
-            if (!a || !b) return false;
-            const ta = toDate(a.sentAt);
-            const tb = toDate(b.sentAt);
-            if (!ta || !tb || ta.toDateString() !== tb.toDateString()) return false;
-            if (isOwnFn(a) !== isOwnFn(b)) return false;
-            if (!isOwnFn(a) && String(a.senderId) !== String(b.senderId)) return false;
-            return Math.abs(tb - ta) <= CLUSTER_GAP_MS;
-        };
 
         items.push({
             type: 'message',
             key: `${message.conversationId}:${message.seq}`,
             message,
-            isOwn: own,
-            joinedPrev: joins(messages[index - 1], message),
-            joinedNext: joins(message, messages[index + 1])
+            isOwn: isOwnFn(message),
+            joinedPrev: joins(
+                orderedMessages[index - 1],
+                message
+            ),
+            joinedNext: joins(
+                message,
+                orderedMessages[index + 1]
+            )
         });
     });
 

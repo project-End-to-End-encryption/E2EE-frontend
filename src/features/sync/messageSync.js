@@ -129,9 +129,18 @@ async function handleEnvelope(envelope, { queued }) {
             await handleSenderKeyDistribution(envelope, body);
             return null;
 
-        case 'archiveKey':
-            await archiveCrypto.acceptDistributedKey(envelope, body);
+        case 'archiveKey': {
+            const result = await archiveCrypto.acceptDistributedKey(envelope, body);
+            if (result?.accepted) {
+                // A key just arrived: drop stale placeholders, then re-fetch history.
+                // Deferred so it doesn't delay draining the remaining envelopes.
+                await messageRepo.deleteUndecryptable(body.conversationId);
+                queueMicrotask(() =>
+                    backfill(body.conversationId).catch((e) => console.warn('[messageSync] backfill failed', e))
+                );
+            }
             return null;
+        }
 
         default:
             console.warn('[messageSync] unknown payload kind:', body.kind, { queued });

@@ -1,8 +1,9 @@
 import React from 'react';
-import { Sun, Moon, ChevronRight, ArrowLeft, KeyRound, User, Camera, FileText } from 'lucide-react';
+import { Sun, Moon, ChevronRight, ArrowLeft, KeyRound, User, Camera, FileText, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../../../../providers/useTheme.js';
 import { useSelf } from '../../hooks/useSelf.js';
+import {useLogout} from "../../hooks/useLogout.js";
 
 export default function SettingsMenu({ view, onViewChange, onClose }) {
     const { isDark, setTheme } = useTheme();
@@ -66,6 +67,16 @@ export default function SettingsMenu({ view, onViewChange, onClose }) {
             </button>
             <button type="button" className="flex items-center justify-between w-full p-[10px] rounded-[12px] hover:bg-[var(--surface-2)]" onClick={() => { onClose?.(); navigate('/keys'); }}>
                 <span className="flex items-center gap-[10px]"><KeyRound className="w-[17px] h-[17px]" />Encryption keys</span><ChevronRight className="w-[16px] h-[16px]" />
+            </button>
+            <button
+                type="button"
+                className="flex items-center justify-between w-full p-[10px] rounded-[12px] hover:bg-[var(--surface-2)] text-red-500"
+                onClick={useLogout}>
+                <span className="flex items-center gap-[10px]">
+                    <LogOut className="w-[17px] h-[17px]" />
+                        Logout
+                </span>
+                <ChevronRight className="w-[16px] h-[16px]" />
             </button>
         </div>
     );

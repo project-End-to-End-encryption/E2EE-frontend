@@ -11,11 +11,17 @@ export const register = async ({email, password, reservationId }) => {
     return result;
 };
 
-export const login = async ({email, password}) => {
-    const result = await loginUser({email,password});
+export const login = async ({ email, password }) => {
+    const result = await loginUser({
+        email,
+        password,
+    });
+
+    authStore.setUserId(result.userId);
+
     const socket = await webSocketClient.connect();
-    authStore.setUserId(result.userId)
+
     return result;
-}
+};
 
 export {refreshAccessToken} from '../../../infrastructure/http/tokenRefresh.js'

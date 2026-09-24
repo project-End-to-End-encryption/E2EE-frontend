@@ -35,7 +35,10 @@ export const ERROR_CODES = {
     // keys / recovery
     MBK_NOT_LOADED: 'MBK_NOT_LOADED',
     RECOVERY_KEY_INVALID: 'RECOVERY_KEY_INVALID',
-    NO_ARCHIVE_KEY: 'NO_ARCHIVE_KEY'
+    NO_ARCHIVE_KEY: 'NO_ARCHIVE_KEY',
+    ARCHIVE_KEY_EXISTS: 'ARCHIVE_KEY_EXISTS',          // lost the mint race
+    ARCHIVE_KEY_NOT_MINTED: 'ARCHIVE_KEY_NOT_MINTED',  // storing a copy before anyone minted
+
 };
 
 /** An error that carries a code, so callers can branch without string matching. */
@@ -69,7 +72,9 @@ export const MESSAGES = {
     RECOVERY_KEY_INVALID: 'That does not look like a valid recovery key file.',
     NO_ARCHIVE_KEY: 'Waiting for this conversation\u2019s key to arrive.',
     TIMEOUT: 'The server did not respond. Try again.',
-    RATE_LIMIT: 'Slow down for a moment and try again.'
+    RATE_LIMIT: 'Slow down for a moment and try again.',
+    ARCHIVE_KEY_EXISTS: 'Waiting for this conversation\u2019s key to arrive.',
+    ARCHIVE_KEY_NOT_MINTED: 'This conversation\u2019s key has not been created yet.',
 };
 
 export const messageFor = (error) =>

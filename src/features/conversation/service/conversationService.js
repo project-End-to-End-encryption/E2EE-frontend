@@ -114,32 +114,39 @@ export const conversationService = {
         const conversationId = String(conversation._id);
         const epoch = conversation.keyEpoch ?? 1;
 
-        // Fast path — already in IndexedDB
+        // Fast path: key already cached locally
         const cached = await archiveKeyRepo.get(conversationId, epoch);
         if (cached?.key) return 'ready';
 
-        // Try fetching from the server (someone else already minted + distributed)
         try {
             await archiveCrypto.getKey(conversationId, epoch);
             return 'ready';
         } catch (error) {
-            if (error?.code === ERROR_CODES.MBK_NOT_LOADED) throw error;
-            // NO_ARCHIVE_KEY — fall through and mint it ourselves
+            // CRITICAL: only "server has no key" may fall through to minting.
+            // MBK mismatch, network errors, IndexedDB errors etc. must surface,
+            // because minting here would overwrite a perfectly good key.
+            if (error?.code !== ERROR_CODES.NO_ARCHIVE_KEY) throw error;
         }
 
-        // Mint the CAK and distribute it. Whichever device gets here first
-        // races safely: the server rejects a duplicate epoch silently and the
-        // winner's distribution still lands correctly.
-        const { bytes } = await archiveCrypto.createKey(conversationId, epoch);
+        let minted;
         try {
-            await this.distributeArchiveKey(conversationId, epoch, bytes);
+            // mode 'mint' makes the server claim (conversationId, epoch) atomically
+            minted = await archiveCrypto.createKey(conversationId, epoch);
+        } catch (error) {
+            if (error?.code === ERROR_CODES.ARCHIVE_KEY_EXISTS) {
+                // Someone else won the race. Their key arrives via the 'archiveKey'
+                // envelope (acceptDistributedKey). Don't use any key of our own.
+                return 'awaitingKey';
+            }
+            throw error;
+        }
+
+        try {
+            await this.distributeArchiveKey(conversationId, epoch, minted.bytes);
         } catch (distributeError) {
-            // Distribution failure (e.g., peer has no prekeys yet) must not
-            // block the chat. The key is already in IndexedDB from createKey;
-            // the peer will pull it from MBK-vault on next restoreAllKeys().
             console.warn('[conversationService] key distribution warning:', distributeError?.message);
         } finally {
-            bytes.fill(0);
+            minted.bytes.fill(0);   // never leave raw key bytes in memory
         }
         return 'ready';
     },
@@ -229,6 +236,10 @@ export const conversationService = {
         const row = normaliseRow(ack.conversation);
         await conversationRepo.applySync({ conversations: [row] });
         bus.emit(TOPICS.SIDEBAR_CHANGED, { conversationId: row._id, mode: 'updated' });
+
+        // The newcomer has no CAK. Hand over the current epoch's key.
+        // Existing members ignore it thanks to the guard above.
+        await this.pushArchiveKey(conversationId, row.keyEpoch);
         return row;
     },
 
@@ -242,9 +253,16 @@ export const conversationService = {
 
     /** Re-hand the CAK I already hold for `epoch` to everyone — cheap no-op for existing members, necessary for a newcomer. */
     async pushArchiveKey(conversationId, epoch) {
-        const cached = await archiveKeyRepo.get(conversationId, epoch);
-        if (!cached?.key) return 0;
-        return this.distributeArchiveKey(conversationId, epoch, cached.key);
+        // Cached CAKs are non-extractable, so re-unwrap from the server-held copy
+        const ack = await rpc(SOCKET_EVENTS.CONVERSATION_GET_KEY, { conversationId, epoch });
+        if (!ack?.key) return 0;
+
+        const bytes = await archiveCrypto.unwrapToBytes(ack.key);
+        try {
+            return await this.distributeArchiveKey(conversationId, epoch, bytes);
+        } finally {
+            bytes.fill(0);
+        }
     },
 
     list: (options) => conversationRepo.list(options),
