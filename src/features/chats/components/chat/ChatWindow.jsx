@@ -84,7 +84,16 @@ export default function ChatWindow({ conversation, selfUserId, onBack }) {
 
     return (
         <>
-            <main className="relative flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden border border-[var(--line)] max-md:order-2 [.ec-root[data-view=list]_&]:max-md:hidden shadow-[var(--shadow-card)] bg-[var(--canvas)] bg-[linear-gradient(var(--wall-wash),var(--wall-wash)),var(--wall-image)] bg-cover bg-center bg-no-repeat">
+            <main
+                    className="chat-open relative flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden border border-[var(--line)] max-md:order-2 [.ec-root[data-view=list]_&]:max-md:hidden shadow-[var(--shadow-card)]"
+                style={{
+                    backgroundImage: 'var(--chat-wall-image)',
+                    backgroundSize: 'contain',
+                    backgroundPosition: 'center',
+                    backgroundRepeat: 'no-repeat',
+                    backgroundColor: 'var(--canvas)'
+                }}
+>
                 <ChatHeader
                     conversation={conversation}
                     keyState={keyState}

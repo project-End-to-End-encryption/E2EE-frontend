@@ -160,13 +160,12 @@ export default function Composer({ conversationId, onSendText, disabled = false,
                 </p>
             )}
 
-            <div className="flex items-end gap-1 p-[7px] pl-[8px] border border-[var(--line)] rounded-[32px] bg-[var(--surface)] shadow-[var(--shadow-float)] transition-[box-shadow,border-color] duration-150 focus-within:border-[var(--focus)] focus-within:shadow-[var(--shadow-float),0_0_0_3px_color-mix(in_srgb,var(--focus)_22%,transparent)]">
+            <div className="flex items-center gap-2 p-[7px] pl-[8px] border border-white/80 rounded-[32px] bg-white/95 shadow-[0_5px_18px_rgba(80,120,160,0.20)]">
 
                 <div className="relative flex" ref={menuRef}>
                     <button
                         type="button"
-                        className="inline-flex items-center justify-center flex-none w-[42px] h-[42px] p-0 border-0 rounded-full bg-transparent text-[var(--ink-2)] transition-[background-color,color,transform] duration-150 hover:enabled:bg-[var(--surface-3)] hover:enabled:text-[var(--ink)] active:enabled:scale-[0.94] disabled:opacity-45"
-                        aria-label="Attach"
+                        className="inline-grid place-items-center flex-none w-[42px] h-[42px] p-0 border-0 rounded-full bg-transparent text-[var(--ink-2)] transition-colors duration-150 hover:bg-[#edf5ff] hover:text-[var(--ink)] active:scale-[0.94] disabled:opacity-45"
                         aria-haspopup="menu"
                         aria-expanded={menuOpen}
                         disabled={disabled}
@@ -186,6 +185,7 @@ export default function Composer({ conversationId, onSendText, disabled = false,
 
                 <input ref={fileInput} type="file" multiple hidden onChange={handleFiles} />
 
+            <div className="flex-1 min-w-0 flex items-center rounded-[24px] bg-[#edf5ff] px-3">
                 <textarea
                     ref={inputRef}
                     rows={1}
@@ -205,10 +205,11 @@ export default function Composer({ conversationId, onSendText, disabled = false,
                     aria-label="Send"
                     onClick={handleSend}
                     disabled={!canSend}
-                    className="inline-grid place-items-center flex-none w-[46px] h-[46px] p-0 border-0 rounded-full bg-[linear-gradient(160deg,var(--bubble-out-a),var(--bubble-out-b))] text-white shadow-[0_8px_18px_-8px_var(--bubble-out-b)] transition-[transform,opacity,background-color] duration-150 hover:enabled:-translate-y-[1px] active:enabled:scale-[0.94] disabled:bg-[var(--surface-3)] disabled:text-[var(--ink-3)] disabled:shadow-none"
+                    className="inline-grid place-items-center flex-none w-[46px] h-[46px] p-0 border-0 rounded-full bg-[#1769e0] text-white shadow-[0_8px_18px_-8px_#1769e0] transition-[transform,opacity,background-color] duration-150 hover:enabled:bg-[#1259c4] hover:enabled:-translate-y-[1px] active:enabled:scale-[0.94] disabled:bg-[var(--surface-3)] disabled:text-[var(--ink-3)] disabled:shadow-none"
                 >
                     {busy ? <Loader2 className="w-5 h-5 -ml-[2px] animate-[ec-spin_0.9s_linear_infinite]" /> : <Send className="w-5 h-5 -ml-[2px]" />}
                 </button>
+            </div> 
             </div>
         </div>
     );
