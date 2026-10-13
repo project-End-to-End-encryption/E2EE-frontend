@@ -1,10 +1,11 @@
 import React, { useEffect, useRef } from 'react';
-import { MessageSquare, Phone, Bookmark, Settings } from 'lucide-react';
+import { MessageSquare, Phone, Bookmark, Settings, Sparkles } from 'lucide-react';
 import SettingsMenu from './SettingsMenu.jsx';
 import E2ELogoSVG from '../../../../assets/E2EE.svg';
 
 const TABS = [
     { id: 'chat', Icon: MessageSquare, label: 'Chats' },
+    { id: 'ai', Icon: Sparkles, label: 'AI Assistant' },
     { id: 'calls', Icon: Phone, label: 'Calls' },
     { id: 'saved', Icon: Bookmark, label: 'Saved' }
 ];

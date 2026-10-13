@@ -5,6 +5,7 @@ import { useConversations } from '../hooks/useConversations.js';
 import AppSidebar from '../components/layout/AppSidebar.jsx';
 import ChatWindow from '../components/chat/ChatWindow.jsx';
 import WelcomeCanvas from '../components/welcome/WelcomeCanvas.jsx';
+import AiChatPanel from '../../ai/components/AiChatPanel.jsx';
 import { bootstrapSession } from '../../../app/bootstrap.js';
 import '../styles/chat.css';
 
@@ -37,8 +38,8 @@ function ChatLayout() {
   const view = showChat ? 'chat' : activeTab === 'chat' ? 'list' : 'panel';
 
   // Wallpaper logic based on active chat and theme
-  const activeWallpaper = showChat 
-    ? (theme === 'dark' ? darkBg : lightBg) 
+  const activeWallpaper = showChat
+    ? (theme === 'dark' ? darkBg : lightBg)
     : (theme === 'dark' ? frontDarkBg : frontLightBg);
 
   return (
@@ -56,7 +57,9 @@ function ChatLayout() {
 
         {/* Dynamic Wallpaper Wrapper */}
         <div className="flex-1 h-full overflow-hidden flex flex-col relative">
-          {showChat ? (
+          {activeTab === 'ai' ? (
+              <AiChatPanel />
+          ) : showChat ? (
               <ChatWindow
                   conversation={activeConversation}
                   selfUserId={selfUserId}
