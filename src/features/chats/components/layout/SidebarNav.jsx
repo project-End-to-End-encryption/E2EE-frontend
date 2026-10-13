@@ -1,9 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { MessageSquare, Phone, Bookmark, Settings } from 'lucide-react';
 import SettingsMenu from './SettingsMenu.jsx';
-import Avatar from '../../../../components/common/Avatar.jsx';
-import { useSelf } from '../../hooks/useSelf.js';
-
 import E2ELogoSVG from '../../../../assets/E2EE.svg';
 
 const TABS = [
@@ -12,44 +9,25 @@ const TABS = [
     { id: 'saved', Icon: Bookmark, label: 'Saved' }
 ];
 
-const CONNECTION_LABEL = {
-    online: 'Connected',
-    connecting: 'Connecting',
-    offline: 'Offline'
-};
-
-const STATUS_COLORS = {
-    online: 'bg-[#22c55e]',
-    connecting: 'bg-[#eab308]',
-    offline: 'bg-[var(--ink-3)]'
-};
-
-/**
- * The icon rail: logo, the three tabs, then settings and the user's own
- * avatar at the bottom. On a phone the same markup becomes a bottom bar (see
- * the max-width: 767px block in chat.css).
- *
- * The settings popover is its own component. It closes on Escape and on a
- * click anywhere outside it.
- */
 export default function SidebarNav({
-                                       activeTab,
-                                       onTabChange,
-                                       unreadTotal = 0,
-                                       showSettingsMenu,
-                                       onToggleSettings,
-                                       settingsView,
-                                       onSettingsViewChange,
-                                       onCloseSettings
-                                   }) {
-    const { profile, connection } = useSelf();
+    activeTab,
+    onTabChange,
+    unreadTotal = 0,
+    showSettingsMenu,
+    onToggleSettings,
+    settingsView,
+    onSettingsViewChange,
+    onCloseSettings
+}) {
     const settingsRef = useRef(null);
 
     useEffect(() => {
         if (!showSettingsMenu) return undefined;
 
         const onPointerDown = (event) => {
-            if (!settingsRef.current?.contains(event.target)) onCloseSettings?.();
+            if (!settingsRef.current?.contains(event.target)) {
+                onCloseSettings?.();
+            }
         };
         const onKeyDown = (event) => {
             if (event.key === 'Escape') onCloseSettings?.();
@@ -63,12 +41,16 @@ export default function SidebarNav({
         };
     }, [showSettingsMenu, onCloseSettings]);
 
-    const selfName = profile?.fullName || profile?.username || '';
-    const statusColor = STATUS_COLORS[connection] || STATUS_COLORS.offline;
-
     return (
-        <nav className="flex max-md:flex-row md:flex-col items-center max-md:justify-between flex-none w-full md:w-[72px] h-[58px] md:h-full px-2 md:px-0 py-0 md:py-5 border-t md:border-t-0 md:border-r border-[var(--line)] bg-[var(--surface-2)] z-20 md:z-auto order-3 md:order-none select-none" aria-label="Main">
-            <img src={E2ELogoSVG} alt="E2EE" className="w-[34px] h-[34px] mb-5 max-md:hidden object-contain drop-shadow-sm" />
+        <nav
+            className="flex max-md:flex-row md:flex-col items-center max-md:justify-between flex-none w-full md:w-[72px] h-[58px] md:h-full px-2 md:px-0 py-0 md:py-5 border-t md:border-t-0 md:border-r border-[var(--line)] bg-[var(--surface-2)] z-20 md:z-auto order-3 md:order-none select-none"
+            aria-label="Main"
+        >
+            <img
+                src={E2ELogoSVG}
+                alt="E2EE"
+                className="w-[34px] h-[34px] mb-5 max-md:hidden object-contain drop-shadow-sm"
+            />
 
             <div className="flex max-md:flex-row md:flex-col items-center max-md:flex-1 max-md:justify-evenly gap-2 w-full md:px-2">
                 {TABS.map(({ id, Icon, label }) => (
@@ -114,7 +96,6 @@ export default function SidebarNav({
                     >
                         <Settings className="w-[22px] h-[22px]" />
                     </button>
-
                     {showSettingsMenu && (
                         <SettingsMenu
                             view={settingsView}
@@ -123,15 +104,6 @@ export default function SidebarNav({
                         />
                     )}
                 </div>
-
-                <span className="relative inline-flex flex-none md:mt-2 max-md:ml-2 cursor-pointer transition-transform duration-150 active:scale-95" title={`${selfName || 'You'} - ${CONNECTION_LABEL[connection] ?? ''}`}>
-                    <Avatar name={selfName} seed={profile?.userId ?? selfName} size={42} />
-                    <span
-                        className={`absolute bottom-[-2px] right-[-2px] w-[14px] h-[14px] border-[2.5px] border-[var(--surface-2)] rounded-full ${statusColor}`}
-                        role="img"
-                        aria-label={CONNECTION_LABEL[connection] ?? 'Connection unknown'}
-                    />
-                </span>
             </div>
         </nav>
     );
