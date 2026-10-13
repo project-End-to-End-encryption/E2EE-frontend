@@ -87,6 +87,22 @@ import {
  *      ↓
  *   /chat
  *
+ * Account has no vault yet (signup never finished key setup):
+ *
+ *   novault
+ *      ↓
+ *   Set up encryption on this device
+ *      ↓
+ *   wipe local keys
+ *      ↓
+ *   create NEW identity
+ *      ↓
+ *   vaultService.enroll()
+ *      ↓
+ *   download NEW recovery key
+ *      ↓
+ *   /chat
+ *
  * IMPORTANT:
  *
  * We do NOT navigate to /signup/keys.
@@ -330,8 +346,6 @@ export default function RestoreKeysPage() {
     /*
      * LOST RECOVERY KEY
      *
-     * This is the important part.
-     *
      * We use the EXISTING APIs:
      *
      * 1. vaultService.reset()
@@ -432,6 +446,102 @@ export default function RestoreKeysPage() {
         ]
     );
 
+    /*
+     * NO VAULT YET
+     *
+     * The account exists but never finished key setup
+     * (for example the signup failed after the account was
+     * created). Same steps as the lost-key reset, minus
+     * vaultService.reset() because there is nothing to reset.
+     *
+     * We stay in the 'novault' phase on purpose. Switching to
+     * 'working' would render the restore UI.
+     */
+    const handleSetupNewVault = useCallback(
+        async () => {
+            if (resetBusy) {
+                return;
+            }
+
+            setResetBusy(true);
+            setResetError(null);
+
+            let identityPkcs8 = null;
+
+            try {
+                await wipeLocalKeys();
+
+                const socket =
+                    await webSocketClient.connect();
+
+                await generateAndRegisterKeys(
+                    socket,
+                    {
+                        retainForVault: true
+                    }
+                );
+
+                identityPkcs8 =
+                    identityHandoff.peek();
+
+                if (!identityPkcs8) {
+                    throw new Error(
+                        'A new identity key could not be created.'
+                    );
+                }
+
+                await vaultService.enroll({
+                    username,
+                    identityPrivateKeyPkcs8:
+                    identityPkcs8,
+                    autoDownload: true
+                });
+
+                identityHandoff.release();
+                identityPkcs8 = null;
+
+                await claimDevice(
+                    authStore.getUserId()
+                );
+
+                navigate('/chat', {
+                    replace: true
+                });
+            } catch (setupError) {
+                console.error(
+                    '[restore] new vault setup failed:',
+                    setupError
+                );
+
+                setResetError(
+                    setupError?.message ||
+                    'Could not set up encryption on this device.'
+                );
+            } finally {
+                if (identityHandoff.has()) {
+                    identityHandoff.release();
+                }
+
+                if (identityPkcs8) {
+                    try {
+                        new Uint8Array(
+                            identityPkcs8
+                        ).fill(0);
+                    } catch {
+                        // ignore cleanup errors
+                    }
+                }
+
+                setResetBusy(false);
+            }
+        },
+        [
+            navigate,
+            resetBusy,
+            username
+        ]
+    );
+
     return (
         <AuthPageShell
             tagline="Welcome back."
@@ -507,8 +617,77 @@ export default function RestoreKeysPage() {
                         className="mt-2"
                     >
                         This account does not currently
-                        have a recovery vault.
+                        have a recovery vault. You can
+                        set up encryption on this device
+                        and download a new recovery key.
+                        Messages encrypted with an
+                        earlier key cannot be read.
                     </p>
+
+                    {resetError && (
+                        <div
+                            role="alert"
+                            className="mt-5 flex items-start gap-2.5 p-3 text-sm"
+                            style={{
+                                background: '#fdecea',
+                                color: DANGER,
+                                border:
+                                    '1px solid #f5c6c1',
+                                borderRadius: 8,
+                                fontFamily:
+                                CAPTION_FONT,
+                                lineHeight: 1.5
+                            }}
+                        >
+                            <AlertCircle
+                                size={16}
+                                className="mt-0.5 shrink-0"
+                                aria-hidden="true"
+                            />
+
+                            <span>
+                                {resetError}
+                            </span>
+                        </div>
+                    )}
+
+                    <button
+                        type="button"
+                        onClick={handleSetupNewVault}
+                        disabled={resetBusy}
+                        className="mt-8 flex w-full items-center justify-center gap-2 px-6 py-3.5 text-base font-medium"
+                        style={{
+                            ...buttonBase,
+                            background:
+                            COLORS.signal,
+                            opacity:
+                                resetBusy
+                                    ? 0.55
+                                    : 1,
+                            cursor:
+                                resetBusy
+                                    ? 'default'
+                                    : 'pointer'
+                        }}
+                    >
+                        {resetBusy ? (
+                            <>
+                                <Loader2
+                                    size={18}
+                                    className="animate-spin"
+                                    aria-hidden="true"
+                                />
+
+                                <span>
+                                    Setting up encryption...
+                                </span>
+                            </>
+                        ) : (
+                            <span>
+                                Set up encryption on this device
+                            </span>
+                        )}
+                    </button>
 
                     <button
                         type="button"
@@ -518,11 +697,19 @@ export default function RestoreKeysPage() {
                                 { replace: true }
                             )
                         }
-                        className="mt-8 w-full px-6 py-3.5 text-base font-medium"
+                        disabled={resetBusy}
+                        className="mt-3 w-full px-6 py-3 text-sm font-medium"
                         style={{
                             ...buttonBase,
-                            background:
-                            COLORS.signal
+                            background: 'transparent',
+                            opacity:
+                                resetBusy
+                                    ? 0.55
+                                    : 1,
+                            cursor:
+                                resetBusy
+                                    ? 'default'
+                                    : 'pointer'
                         }}
                     >
                         Back to login
@@ -916,8 +1103,8 @@ export default function RestoreKeysPage() {
                                     />
 
                                     <span>
-                            {resetError}
-                        </span>
+                                        {resetError}
+                                    </span>
                                 </div>
                             )}
 
@@ -946,13 +1133,13 @@ export default function RestoreKeysPage() {
                                                 aria-hidden="true"
                                             />
                                             <span>
-                                    Creating new encryption...
-                                </span>
+                                                Creating new encryption...
+                                            </span>
                                         </>
                                     ) : (
                                         <span>
-                                Delete history & create new key
-                            </span>
+                                            Delete history & create new key
+                                        </span>
                                     )}
                                 </button>
 
